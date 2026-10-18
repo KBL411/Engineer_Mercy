@@ -132,6 +132,10 @@ export function normalizeWttjHit(h) {
   const office = Array.isArray(h.offices) && h.offices.length > 0 ? h.offices[0] : null;
   const parts = [];
   if (office && typeof office.city === 'string' && office.city.trim()) parts.push(office.city.trim());
+  // The region lets one location_filter keyword cover a whole area: a suburb
+  // such as "Vélizy-Villacoublay" is matched by "Ile-de-France" without
+  // listing every city.
+  if (office && typeof office.state === 'string' && office.state.trim()) parts.push(office.state.trim());
   if (office && typeof office.country === 'string' && office.country.trim()) parts.push(office.country.trim());
   if (h.remote === 'fulltime') parts.push('Remote');
   const location = parts.join(', ');

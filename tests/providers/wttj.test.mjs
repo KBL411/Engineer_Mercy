@@ -112,6 +112,17 @@ try {
     fail(`normalizeWttjHit() location = ${JSON.stringify(j1 && j1.location)}`);
   }
 
+  const suburb = normalizeWttjHit({
+    ...fullHit,
+    offices: [{ city: 'Vélizy-Villacoublay', state: 'Ile-de-France', country: 'France' }],
+    remote: 'partial',
+  });
+  if (suburb && suburb.location === 'Vélizy-Villacoublay, Ile-de-France, France') {
+    pass('normalizeWttjHit() puts the office region between city and country, and omits Remote for partial remote');
+  } else {
+    fail(`normalizeWttjHit() suburb location = ${JSON.stringify(suburb && suburb.location)}`);
+  }
+
   if (j1 && j1.postedAt === 1751500800000) {
     pass('normalizeWttjHit() converts published_at_timestamp epoch-seconds to ms');
   } else {
