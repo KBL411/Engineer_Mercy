@@ -1,5 +1,7 @@
 # Mode: update — Interactive System Update
 
+> **Fork notice, which overrides everything below.** This checkout is a hard fork (`SPEC.md` §3.1). Never run `update-system.mjs`. When the user runs `/career-ops update`, run the weekly upstream review from `AGENTS.md` → "Update Check" instead: fetch `upstream`, list the commits that touch files this fork still has, and cherry-pick only the ones the user approves. The flow below is kept for reference until the update system is removed (`SPEC.md` §3.8).
+
 When the user runs `/career-ops update`, execute this interactive update flow.
 
 ## Step 1 — Check for Updates

@@ -55,12 +55,19 @@ ok('the plugin registry directory is owned, not the deleted single file', () => 
 // the links themselves so a moved router fails here rather than going unowned.
 // A checkout without symlink support (Windows, core.symlinks=false) holds each
 // link as a one-line file naming its target, so read that form too.
+// The installer goes one step further on such a checkout: it replaces the
+// one-line file with a copy of the router, so a byte-identical copy counts as
+// a link to the router too.
+const ROUTER = '.agents/skills/career-ops/SKILL.md';
 function linkTarget(p) {
   const abs = join(ROOT, p);
   if (!existsSync(abs)) return null;
   if (lstatSync(abs).isSymbolicLink()) return readlinkSync(abs);
   const text = readFileSync(abs, 'utf-8');
-  return text.length < 200 && /^[^\n]+SKILL\.md\s*$/.test(text) ? text.trim() : null;
+  if (text.length < 200 && /^[^\n]+SKILL\.md\s*$/.test(text)) return text.trim();
+  const router = join(ROOT, ROUTER);
+  const isCopy = p.split(sep).join('/') !== ROUTER && existsSync(router) && readFileSync(router, 'utf-8') === text;
+  return isCopy ? relative(dirname(abs), router) : null;
 }
 const skillLinks = readdirSync(ROOT)
   .map(d => join(d, 'skills', 'career-ops', 'SKILL.md'))
