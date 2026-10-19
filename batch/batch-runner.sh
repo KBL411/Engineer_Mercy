@@ -6,7 +6,8 @@ set -euo pipefail
 # batch-state.tsv for resumability.
 #
 # Supported CLIs (--cli flag):
-#   claude    — claude -p with --dangerously-skip-permissions (default)
+#   claude    — claude -p inside a least-privilege permission envelope
+#               (claude_worker_permission_args below) (default)
 #   opencode  — opencode run (falls back to ollama launch opencode if not in PATH)
 #   gemini    — gemini -p
 #   qwen      — qwen -p
@@ -16,6 +17,80 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# >>> worker permission envelope
+# scripts/test-prompt-injection.sh extracts the lines between these two markers,
+# so the injection test exercises the exact flags this runner ships
+# (SPEC.md §3.5). Keep the function self-contained between them.
+#
+# Workers read job postings, and a posting is untrusted: it can carry text
+# aimed at the agent. Upstream ran workers with --dangerously-skip-permissions,
+# which hands such text every tool on the machine. Here a worker gets what an
+# evaluation needs and nothing else:
+#   --restricted              no user or project settings or hooks, file tools
+#                             confined to the working directories, and
+#                             bypassPermissions refused
+#   --tools                   reads, writes, Bash and WebSearch; no WebFetch,
+#                             no subagents
+#   dontAsk, prompts "none"   anything not allowed below is denied, instead of
+#                             waiting for an answer nobody is there to give
+#   --allowedTools            writes only under reports/, output/ and
+#                             batch/tracker-additions/ of the data root; Bash
+#                             only for the scripts batch-prompt.md runs
+#
+# `node -e` stays denied although batch-prompt.md uses it for the optional
+# relocation purchasing-power step: arbitrary code execution is exactly what an
+# injected posting wants, so that step reports itself unavailable instead.
+# generate-pdf.mjs is allowed because it renders with JavaScript disabled and
+# every network request blocked.
+#
+# Usage: claude_worker_permission_args <data-root> [<code-root>]
+# Fills the global array CLAUDE_WORKER_PERMISSION_ARGS.
+claude_worker_permission_args() {
+  local data_root="$1" code_root="${2:-$1}" abs drive
+  # Permission rules match paths in POSIX form, and `//` anchors a rule at the
+  # filesystem root: a drive path "D:/work/x" is matched as "//d/work/x".
+  abs="$data_root"
+  if [[ "$abs" =~ ^([A-Za-z]):(.*)$ ]]; then
+    drive="$(printf '%s' "${BASH_REMATCH[1]}" | tr 'A-Z' 'a-z')"
+    abs="/${drive}${BASH_REMATCH[2]}"
+  fi
+  abs="/${abs%/}"
+
+  CLAUDE_WORKER_PERMISSION_ARGS=(--restricted)
+  # --restricted confines file tools to the working directory, the checkout.
+  # A data root outside it has to be added explicitly.
+  if [[ "$data_root" != "$code_root" ]]; then
+    CLAUDE_WORKER_PERMISSION_ARGS+=(--add-dir "$data_root")
+  fi
+  CLAUDE_WORKER_PERMISSION_ARGS+=(
+    --tools "Read,Write,Edit,Glob,Grep,Bash,WebSearch"
+    --permission-mode dontAsk
+    --permission-prompts none
+    --allowedTools
+      "WebSearch"
+      "Edit(${abs}/reports/**)"
+      "Edit(${abs}/output/**)"
+      "Edit(${abs}/batch/tracker-additions/**)"
+      "Bash(node keyword-match.mjs *)"
+      "Bash(node generate-pdf.mjs *)"
+      "Bash(node salary-gap.mjs *)"
+      "Bash(date)"
+      "Bash(date *)"
+    --disallowedTools
+      "WebFetch"
+      "mcp__*"
+      "Read(.env)"
+      "Read(.env.*)"
+      "Bash(node -e *)"
+      "Bash(curl *)"
+      "Bash(wget *)"
+    # A boolean flag last: it closes the variadic --disallowedTools list, so
+    # the caller's next argument is never read as one more deny rule.
+    --no-session-persistence
+  )
+}
+# <<< worker permission envelope
 # Under Git Bash / MSYS, pwd gives a POSIX path (/c/...). Node is a native
 # Windows binary and gets it unconverted when MSYS path conversion is off
 # (MSYS_NO_PATHCONV=1), so every `node "$PROJECT_DIR/..."` call failed with
@@ -1164,7 +1239,11 @@ process_offer() {
   # servers: they only evaluate offers and need none. Without it each parallel
   # worker inherits the parent session's MCP (e.g. Playwright) and they deadlock
   # fighting over the single shared browser when --parallel > 1 (issue #506).
-  local -a claude_args=(-p --dangerously-skip-permissions --strict-mcp-config)
+  # The worker reads an untrusted job posting, so it runs inside the permission
+  # envelope defined at the top of this file, never with
+  # --dangerously-skip-permissions.
+  claude_worker_permission_args "$DATA_ROOT" "$PROJECT_DIR"
+  local -a claude_args=(-p --strict-mcp-config "${CLAUDE_WORKER_PERMISSION_ARGS[@]}")
   if [[ -n "$RESOLVED_MODEL" ]]; then
     claude_args+=(--model "$RESOLVED_MODEL")
   fi

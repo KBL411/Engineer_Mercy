@@ -3,7 +3,6 @@
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
 import { flagValue, hasFlag, validateFlags } from './lib/cli-flags.mjs';
-import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { getCareerOpsRoot } from './path-resolver.mjs';
 
@@ -114,36 +113,17 @@ for (let i = 0; i < toProcess.length; i++) {
   
   // Try to find the local report file to pass to the agent
   const matchingReport = reports.find(f => f.startsWith(`${job.reportNum}-`) && f.endsWith('.md'));
-  // Absolute, for the same reason as modes/pdf.md below: with a split data
-  // root, a bare `reports/...` points the worker at the code checkout, where
-  // the report does not exist.
+  // Absolute: with a split data root, a bare `reports/...` points at the code
+  // checkout, where the report does not exist.
   const reportPath = matchingReport ? join(reportsDir, matchingReport) : null;
   if (reportPath) console.log(`  Report: ${reportPath}`);
-  const reportContext = reportPath ? `\nThe evaluation report is available at: ${reportPath}` : '';
-  
-  const prompt = `Tailor the CV for this role and generate the HTML and PDF CVs. \nURL: ${job.url}\nReport number: ${job.reportNum}${reportContext}`;
-  
-  const claudeArgs = [
-    '-p',
-    '--dangerously-skip-permissions',
-    '--append-system-prompt-file',
-    // Absolute: the state file already resolves through __dirname, so passing
-    // this one bare handed the worker a cwd-relative path that only exists when
-    // the script happens to run from the project root. modes/pdf.md is where
-    // the CV fact gate (verify-cv-facts.mjs, step 19) is instructed, so losing
-    // it silently drops the anti-fabrication check from a bulk CV run.
-    join(__dirname, 'modes', 'pdf.md'),
-    prompt
-  ];
-  
-  const res = spawnSync('claude', claudeArgs, { stdio: 'inherit' });
-  if (res.error) {
-    console.error(`Error running claude: ${res.error.message}`);
-  } else if (res.status !== 0) {
-    console.error(`Worker exited with status ${res.status}`);
-  } else {
-    console.log(`✅ Finished tailoring for Report ${job.reportNum}`);
-  }
+
+  // Fork fr-data (SPEC.md §3.5): no headless worker runs with
+  // --dangerously-skip-permissions, and tailoring a CV runs a dozen scripts
+  // (HTML build, CV fact gate, PDF) that no fixed allowlist covers safely
+  // against an untrusted posting. Tailored CVs are generated in an interactive
+  // session instead, where each step is approved.
+  console.log(`  ⏭️  Skipped: bulk tailoring is disabled in this fork. Run /career-ops pdf for report ${job.reportNum} in an interactive session.`);
 }
 
-console.log('\nBulk tailoring complete.');
+console.log('\nBulk tailoring skipped (SPEC.md §3.5).');

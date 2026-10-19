@@ -278,6 +278,8 @@ const SYSTEM_PATHS = [
   'CODEX.md',
   'OPENCODE.md',
   'AGENTS.md',
+  // Fork fr-data: scope, decisions and phase plan of the fork.
+  'SPEC.md',
   'GEMINI.md',
   'KIMI.md',
   'build-dashboard.mjs',
@@ -324,6 +326,8 @@ const SYSTEM_PATHS = [
   'scripts/check-syntax.mjs',
   'scripts/export-ats-text.mjs',
   'scripts/followup-sweep.sh',
+  // Fork fr-data: prompt-injection test of the batch worker permission envelope.
+  'scripts/test-prompt-injection.sh',
   'story-provenance-check.mjs',
   'lib/latex-content.mjs',
   'lib/context-budget.mjs',
