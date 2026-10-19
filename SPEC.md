@@ -23,6 +23,7 @@ Base : career-ops v1.37.0 (licence MIT), utilisé avec Claude Code uniquement, e
 | 1. Profil | `cv.md`, `config/profile.yml`, `modes/_profile.md` (grille de notation), `interview-prep/story-bank.md` (6 histoires) | ✅ 17/10 |
 | 2. Sources | `portals.yml` (40 employeurs vérifiés, Welcome to the Jungle filtré côté serveur, 4 sites remote), `data/blacklist.md` (environ 110 ESN, cabinets, agences, recruteurs). `providers/wttj.mjs` : la région entre dans le lieu de l'offre. Scan d'essai : 172 offres retenues sur 4 211 | ✅ 18/10 |
 | 3. Fork | Branche `fr-data`, remote `upstream` en lecture seule (push désactivé, suivi de `main`), canal de mise à jour coupé dans `AGENTS.md` et `modes/update.md`, `.env` préparé | ✅ 18/10 |
+| 4. Sources payantes ou publiques | Adzuna mesuré : non retenu. France Travail : API retirée du libre accès. Liste noire enrichie de 18 ESN et cabinets vus dans les résultats d'Adzuna (129 entrées) | ✅ 19/10 |
 
 ## 3. Décisions
 
@@ -67,9 +68,10 @@ Aucune automatisation sur LinkedIn : ses conditions d'utilisation (section 8.2) 
 | Sites de recrutement des entreprises (Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Teamtailor) | ✅ en place | 40 employeurs, identifiants vérifiés le 18/10 |
 | Welcome to the Jungle | ✅ en place | CDI, Île-de-France ou full remote, filtré côté serveur |
 | Sites remote (Remotive, Himalayas, We Work Remotely, Landing.jobs) | ✅ en place | Surtout américains : à retirer si le rapport montre qu'ils n'apportent rien |
-| Adzuna | 📏 clé en cours de création | API gratuite (limites à vérifier sur le portail), agrège des offres françaises avec leur salaire |
-| France Travail | 📏 facultatif | Peu de startups tech y publient. Son intérêt possible : les grands groupes, le secteur public, et les offres reçues de plus d'une centaine de sites partenaires (seulement celles que le partenaire autorise dans l'API) |
-| APEC, HelloWork, Free-Work | ⏳ | Pas d'API publique connue. Lire leurs conditions d'utilisation avant toute ligne de code |
+| Adzuna | ❌ mesuré le 19/10, non retenu | Payante : 8 £ par mois. Mesure avec 6 des 25 appels d'essai (Paris, CDI, 7 jours, 6 types de poste) : 75 offres passent nos filtres. 3 étaient déjà dans nos sources et 2 autres aussi, sous un nom d'entreprise différent. Environ 68 viennent d'ESN, de cabinets de recrutement ou de sites qui republient leurs offres. Une seule offre nouvelle chez un client final dans la cible. Salaire publié pour 13 offres sur 75. L'apport ne justifie ni l'abonnement ni un connecteur |
+| France Travail | ❌ non disponible (19/10) | L'API « Offres d'emploi » n'est plus en libre accès : data.gouv.fr la classe « restreinte », retirée après des « usages automatisés massifs » par des solutions d'IA, et accessible seulement sur demande via le formulaire de contact. Un outil de recherche d'emploi piloté par une IA est précisément l'usage visé : on ne la demande pas. Les identifiants créés le 19/10 fonctionnent, mais ne donnent accès à aucune API utile |
+| APEC, HelloWork | ⏳ | Pas d'API publique connue. Lire leurs conditions d'utilisation avant toute ligne de code |
+| Free-Work, Collective.work, Forums Talents Handicap | ❌ | Vus à travers Adzuna le 19/10 : leurs offres CDI sont presque toutes des offres d'ESN ou de cabinets |
 | Alertes e-mail (LinkedIn, Indeed, APEC) via le plugin Gmail | ⏳ plus tard | Demande une configuration OAuth Google |
 | Hacker News « Who is hiring? » | ❌ retiré | Surtout américain, lieux illisibles |
 
@@ -144,7 +146,7 @@ Une phase = 5 fichiers modifiés au plus (les suppressions en masse d'une même 
 | Phase | Contenu | Prérequis | État |
 |---|---|---|---|
 | 3 | Mise en place du fork | — | ✅ 18/10 |
-| 4 | Mesure d'Adzuna (et de France Travail), puis leurs connecteurs s'ils apportent assez | Clés dans `.env` | ⏳ |
+| 4 | Mesure d'Adzuna et de France Travail, puis leurs connecteurs s'ils apportent assez | Clés dans `.env` | ✅ 19/10 : aucun connecteur (Adzuna n'apporte presque rien, France Travail n'est plus accessible) |
 | 5 | Lanceur headless sécurisé (liste blanche) et test d'offre piégée | — | ⏳ |
 | 6 | Tri supervisé du stock de départ et mesure des tokens | Phase 5 | ⏳ |
 | 7 | Rapports quotidien et hebdomadaire (dont la revue du projet d'origine), tâches planifiées Windows | Phase 6 | ⏳ |
