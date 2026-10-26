@@ -1,37 +1,32 @@
-# Security Policy
+# Politique de sécurité
 
-## Reporting a Vulnerability
+## Signaler une vulnérabilité
 
-**Do NOT open a public issue for security vulnerabilities.**
+**N'ouvre pas d'issue publique pour une faille de sécurité.**
 
-Instead, please email **hi@santifer.io** with:
+Utilise le signalement privé de GitHub : onglet **Security** du dépôt, puis **Report a vulnerability**. Donne :
 
-1. Description of the vulnerability
-2. Steps to reproduce
-3. Potential impact
-4. Suggested fix (if any)
+1. la description de la faille ;
+2. comment la reproduire ;
+3. l'impact possible ;
+4. un correctif, si tu en as un.
 
-You will receive a response within 72 hours. We will work with you to understand and address the issue before any public disclosure.
+On corrige avant toute divulgation publique, et on te cite si tu le souhaites.
 
-## Scope
+## Dans le périmètre
 
-Security issues in the following are in scope:
+- **Scripts** (`*.mjs`, `batch/*.sh`) : injection de commande, traversée de chemin, SSRF ;
+- **Lanceur batch** : toute évasion de l'enveloppe de permissions de `batch/batch-runner.sh` (voir `scripts/test-prompt-injection.sh`) ;
+- **Modèles** (`templates/`) : XSS dans le HTML ou le PDF généré ;
+- **Configuration** : fuite de secrets, réglages dangereux par défaut.
 
-- **Scripts** (`*.mjs`) — command injection, path traversal, SSRF
-- **Dashboard** (`dashboard/`) — any Go binary vulnerabilities
-- **Web dashboard** (`web/`) — anything reachable while it is running, including cross-origin requests from a page the user visits, requests from other hosts on the same network, and command injection through its API
-- **Templates** (`templates/`) — XSS in generated HTML/PDF
-- **Configuration** — secrets exposure, unsafe defaults
+## Hors périmètre
 
-## Out of Scope
+- les failles de dépendances tierces (à signaler chez elles) ;
+- les attaques qui demandent un accès physique à la machine ;
+- l'ingénierie sociale ;
+- une infrastructure hébergée : l'outil tourne en local, il n'y a pas de serveur à attaquer.
 
-- Issues in third-party dependencies (report upstream)
-- Issues requiring physical access to the user's machine
-- Social engineering attacks
-- Attacks on hosted infrastructure — career-ops runs locally, so there is no server of ours to attack
+## Une faille dans le projet d'origine ?
 
-**"Local" does not mean "unreachable".** The web dashboard is a local HTTP server, and a local server is still reachable by a cross-origin page the user happens to visit and by any device on the same network. If an issue needs nothing more than the user running career-ops and browsing normally, it is in scope — please report it rather than assuming the local-tool line excludes it.
-
-## Disclosure Policy
-
-We follow coordinated disclosure. Once a fix is released, we will credit the reporter (unless they prefer anonymity) in the release notes.
+Ce dépôt est un fork de [career-ops](https://github.com/career-ops-hq/career-ops). Si la faille existe aussi chez eux, signale-la à eux aussi, selon leur propre politique.

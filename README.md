@@ -52,13 +52,14 @@ Un grand merci à l'équipe d'origine : tout le moteur d'évaluation, le scanner
 
 | Sujet | career-ops d'origine | Ce fork |
 |---|---|---|
-| **Cible** | Marché mondial, 18 langues | **France, surtout Paris**, CDI chez un client final ; profils data, plateforme et IA. Français et anglais |
+| **Cible** | Marché mondial, 18 langues, plus de 100 connecteurs | **France, surtout Paris**, CDI chez un client final ; profils data, plateforme et IA. Français et anglais |
 | **Agent IA** | Une dizaine de CLI (Codex, Gemini, OpenCode, Qwen…) | **Claude Code uniquement** |
 | **Mises à jour** | `update-system.mjs` met à jour le projet en un clic | **Canal coupé** : le remote `upstream` est en lecture seule, revue hebdomadaire et reprise commit par commit |
 | **Mode batch** | Les agents tournent avec `--dangerously-skip-permissions` | **Enveloppe de permissions minimale** : plus aucune permission ouverte en grand, voir ci-dessous |
 | **Sources d'offres** | Plus de 100 entreprises, surtout anglo-saxonnes | Sites de recrutement d'entreprises (Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Teamtailor) et **Welcome to the Jungle** filtré côté serveur (CDI, Île-de-France ou full remote) |
 | **Lieu des offres** | — | Le connecteur Welcome to the Jungle ajoute **la région du bureau** au lieu de l'offre, pour filtrer correctement |
 | **Annonces Welcome to the Jungle** | Lecture de la page | Lecture via l'index de recherche public du site (la page est derrière un pare-feu qui bloque les lectures automatiques) |
+| **Annonces illisibles** | Téléchargement direct, puis API de l'ATS | Un troisième recours **facultatif** : [Firecrawl](https://www.firecrawl.dev) lit les pages qui refusent les lectures automatiques ou qui n'affichent leur texte qu'avec du JavaScript. Éteint par défaut (`CAREER_OPS_FIRECRAWL=1` pour l'activer), 1 crédit par page, seule l'URL publique de l'offre lui est envoyée |
 | **Clients finaux** | — | Une **liste noire** (`data/blacklist.md`) écarte les ESN, cabinets et agences pour ne garder que les clients finaux |
 | **Exécution quotidienne** | Rien de prévu | `scripts/daily-run.sh` : scan, tri, évaluation des meilleures offres, rapport du jour (10 évaluations par jour au plus, réglable) |
 | **LinkedIn** | — | **Aucune automatisation** (ses conditions d'utilisation l'interdisent). À la place : l'export officiel `Connections.csv` croisé hors ligne avec les entreprises scannées, et le mode `contacto` pour rédiger un message envoyé à la main |
@@ -75,9 +76,9 @@ Le mode batch lance des agents Claude qui lisent des offres venues d'Internet : 
 
 `scripts/test-prompt-injection.sh` vérifie l'enveloppe avec une offre piégée. Sur nos essais, l'agent ne tente rien d'interdit et signale l'injection dans le rapport ; quand on le force à essayer, les 8 actions interdites testées sont refusées et les actions permises passent.
 
-### Et l'élagage ?
+### Un dépôt allégé
 
-Le dépôt contient encore beaucoup de fichiers hérités (autres CLI, traductions, connecteurs d'autres pays, tableaux de bord, Docker, Nix…). Ils seront supprimés par catégories, une phase à la fois. En attendant, ils ne sont ni maintenus ni testés pour ce fork : n'en dépends pas. La feuille de route complète est dans [`SPEC.md`](SPEC.md).
+Le projet d'origine embarque tout ce qu'il faut pour un produit mondial. Ici, on a retiré ce qu'on n'utilise pas : les autres assistants IA (Codex, Gemini, OpenCode, Qwen, Kimi, Grok, Antigravity), les 17 autres langues, une quarantaine de connecteurs de sites étrangers, les tableaux de bord (Go et Next.js), Docker, Nix, le mur des embauches, le manifeste, les robots GitHub et le système de mise à jour. Le dépôt est passé d'environ 2 300 à 1 250 fichiers. Tout reste dans l'historique Git si tu en as besoin. Le détail et les raisons sont dans [`SPEC.md`](SPEC.md), section 3.8.
 
 ## Ce qui arrive bientôt
 
@@ -104,7 +105,6 @@ Pour chaque offre, un CV réordonné et reformulé pour coller au poste : mêmes
 - un **rapport quotidien** court (nouvelles offres au-dessus du seuil, note, raison en une phrase) ;
 - un **rapport hebdomadaire** complet : classement des offres, fourchettes de salaire réelles, compétences les plus demandées face à ton niveau, relances à faire ;
 - les **tâches planifiées Windows** pour tout lancer seul chaque matin ;
-- l'**élagage** du dépôt, jusqu'à ce que `node test-all.mjs` et `node doctor.mjs` restent verts sur le strict nécessaire.
 
 ## Tutoriel : de zéro à ta première offre évaluée
 

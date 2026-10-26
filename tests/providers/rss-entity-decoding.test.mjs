@@ -1,4 +1,4 @@
-// tests/providers/rss-entity-decoding.test.mjs — the seven providers that
+// tests/providers/rss-entity-decoding.test.mjs — the providers that
 // carried a hand-rolled entity decoder emitted NUL / lone surrogates into job
 // titles and silently deleted out-of-range references (#2790). They now share
 // the safe decoder in providers/_html-entities.mjs, so their output must match
@@ -64,7 +64,6 @@ const rss = (title, link) =>
 
 const rssProviders = [
   ['jobspresso.mjs', 'parseJobspressoFeed', 'https://jobspresso.co/job/x/'],
-  ['higheredjobs.mjs', 'parseHigherEdJobsFeed', 'https://www.higheredjobs.com/details.cfm?JobCode=1'],
   ['nodesk.mjs', 'parseNodeskFeed', 'https://nodesk.co/remote-jobs/x/'],
   ['larajobs.mjs', 'parseLarajobsFeed', 'https://larajobs.com/job/1'],
   ['teamtailor.mjs', 'parseTeamtailorFeed', 'https://x.teamtailor.com/jobs/1'],
@@ -142,7 +141,7 @@ for (const [label, getTitle] of checked) {
 // fall out of a discovery sweep, and a correct-looking copy passes every
 // output case above (CodeRabbit on this PR).
 //
-//   1. The seven files #2818 migrated are named explicitly. That set is
+//   1. The files #2818 migrated (those kept in this fork) are named explicitly. That set is
 //      historical and does not move, so a hardcoded list is the right shape:
 //      each MUST still import the shared module, and dropping the import is
 //      itself the failure.
@@ -173,7 +172,7 @@ for (const [label, getTitle] of checked) {
   // and so does not match either.
 
   const MIGRATED = [
-    'jobspresso.mjs', 'higheredjobs.mjs', 'nodesk.mjs', 'larajobs.mjs',
+    'jobspresso.mjs', 'nodesk.mjs', 'larajobs.mjs',
     'personio.mjs', 'teamtailor.mjs', 'weworkremotely.mjs',
   ];
 

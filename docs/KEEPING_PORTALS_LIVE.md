@@ -11,8 +11,8 @@ URL, mention it out loud, or finish evaluating one — it ends up resolved and
 appended to `portals.yml`, without you having to remember to do it by hand. This
 page shows the house rule that automates that, and how to check the file afterwards.
 
-> `portals.yml` is a **user-layer** file. Whatever you configure here survives
-> `node update-system.mjs`. Nothing on this page requires editing a system file.
+> `portals.yml` is a **user-layer** file. Nothing on this page requires editing
+> a system file.
 
 ---
 
@@ -91,22 +91,14 @@ found without writing to `data/pipeline.md`.
 
 ---
 
-## 3. Run the checks through your agent CLI
+## 3. Run the checks through Claude Code
 
-You do not have to memorize the commands — hand the job to the CLI you use. The
-same `portals.yml` and the same scripts are behind all of them.
+You do not have to memorize the commands — hand the job to Claude Code
+(`claude`, then `/career-ops`). The same `portals.yml` and the same scripts are
+behind it. For example: "Validate my `portals.yml` and tell me which entries are
+broken." or "Add Acme Corp to my portals and validate it."
 
-| CLI | Invoke | Example prompt |
-| --- | --- | --- |
-| Claude Code | `claude` (then `/career-ops`) | "Validate my `portals.yml` and tell me which entries are broken." |
-| OpenCode | `opencode` (then `/career-ops`) | "Add Acme Corp to my portals and validate it." |
-| Codex | `codex` (plain text) | "Run career-ops: add Acme Corp to portals.yml and validate." |
-| Antigravity CLI | `agy` (then `/career-ops`) | "Check my portals.yml for dead boards." |
-| Qwen | `qwen` | "Validate portals.yml and report broken companies." |
-| Copilot CLI | `copilot -p "…"` | `copilot -p "Validate portals.yml in this repo"` |
-
-Both interactive and headless invocation work; see
-[Supported CLIs](SUPPORTED_CLIS.md) for the full table, and
+Both interactive and headless (`claude -p "…"`) invocation work; see
 [Automation](AUTOMATION.md) if you want the check to run on a schedule.
 
 A good rule after adding several companies at once: ask the agent to run

@@ -1,7 +1,7 @@
 {
   "name": "career-ops",
   "version": "1.37.0",
-  "description": "Open-source AI job search that runs locally in your AI coding CLI: scan job portals, evaluate listings into a structured A-H report with a 1-5 score, tailor your CV, track applications",
+  "description": "Fork of career-ops for Claude Code, aimed at data, platform and AI engineers job hunting in France: scan job portals, evaluate listings into an A-H report with a 1-5 score, tailor your CV, track applications",
   "private": true,
   "engines": {
     "node": "^22.13.0 || >=23.4.0"
@@ -55,33 +55,23 @@
     "archive": "node archive-posting.mjs",
     "prepare:application": "node prepare-application.mjs",
     "application:init": "node application-artifacts.mjs --init",
-    "build:dashboard": "node build-dashboard.mjs",
-    "serve:dashboard": "cd dashboard && go run .",
-    "postinstall": "node -e \"process.exit(['','0','false'].includes((process.env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD||'').toLowerCase())?1:0)\" || npx playwright install chromium || npx playwright install chromium",
-    "manifesto": "node manifesto.mjs"
+    "postinstall": "node -e \"process.exit(['','0','false'].includes((process.env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD||'').toLowerCase())?1:0)\" || npx playwright install chromium || npx playwright install chromium"
   },
   "keywords": [
     "ai",
     "job-search",
     "claude-code",
-    "opencode",
     "career",
     "career-ops",
-    "careerops",
     "automation",
-    "codex",
-    "antigravity",
-    "qwen",
-    "kimi",
-    "copilot",
-    "grok",
+    "france",
     "ai-agent-skill"
   ],
   "author": "Santiago Fernández de Valderrama <hi@santifer.io> (https://santifer.io)",
-  "homepage": "https://career-ops.org",
+  "homepage": "https://github.com/KBL411/Engineer_Mercy",
   "repository": {
     "type": "git",
-    "url": "https://github.com/career-ops-hq/career-ops"
+    "url": "https://github.com/KBL411/Engineer_Mercy"
   },
   "license": "MIT",
   "dependencies": {

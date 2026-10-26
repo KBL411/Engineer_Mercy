@@ -14,7 +14,7 @@ Career-ops is built on three commitments that every design decision serves:
 
 The single most important architectural rule: **system files** and **user files** are strictly separated.
 
-- **System layer** — the tool itself: `modes/`, scripts (`*.mjs`), templates, the dashboard. These are versioned in git; this fork has no auto-updater.
+- **System layer** — the tool itself: `modes/`, scripts (`*.mjs`), templates. These are versioned in git; this fork has no auto-updater.
 - **User layer** — your data: `cv.md`, `config/profile.yml`, `modes/_profile.md`, `data/`, `reports/`, `jds/`, etc. Nothing in the tool overwrites these, and they stay out of git.
 
 `DATA_CONTRACT.md` is the source of truth for this boundary.
@@ -69,9 +69,6 @@ Every evaluated offer is registered. `data/applications.md` is the canonical tra
 ### Agent entry files
 `CLAUDE.md` is a thin `@AGENTS.md` wrapper around the canonical `AGENTS.md`. The single skill router is `.claude/skills/career-ops/SKILL.md`; it routes `/career-ops <mode>` into the same modes.
 
-### Dashboard (optional)
-A standalone Go TUI under `dashboard/` for browsing the pipeline. Isolated from the core — never required.
-
 ## Data flow (a typical run)
 
 ```
@@ -85,7 +82,7 @@ scan ──► data/pipeline.md ──► evaluate (oferta + cv) ──► repor
 ## Quality gates
 
 - `test-all.mjs` — the full suite (500+ checks across scoring, scan, tracker, PDF, security).
-- CI: `test` + CodeQL are required; CodeRabbit reviews every PR; Renovate keeps deps current.
+- CI: `test` + CodeQL are required.
 
 ## Where to start reading
 

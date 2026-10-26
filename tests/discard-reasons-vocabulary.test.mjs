@@ -1,7 +1,6 @@
-// templates/discard-reasons.yml is the discard-reason vocabulary (#2785). Two
-// surfaces restate its ids by hand: the batch prompt that tells evaluators what
-// to write, and the dashboard picker's fallback options. Pin both to the file
-// so adding or renaming an id cannot leave either one behind.
+// templates/discard-reasons.yml is the discard-reason vocabulary (#2785). The
+// batch prompt restates its ids by hand to tell evaluators what to write. Pin
+// it to the file so adding or renaming an id cannot leave it behind.
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -54,11 +53,4 @@ check('the batch prompt lists the same ids in the same order', () => {
   const rule = prompt.match(/^- `discard_reasons` items are canonical ids from `templates\/discard-reasons\.yml`: (.+?)\. Read that file/m);
   assert.ok(rule, 'discard_reasons rule not found in batch/batch-prompt.md');
   assert.deepEqual([...rule[1].matchAll(/`([^`]+)`/g)].map(match => match[1]), ids);
-});
-
-check('the dashboard picker offers the same ids in the same order', () => {
-  const pipeline = readFileSync(join(ROOT, 'dashboard', 'internal', 'ui', 'screens', 'pipeline.go'), 'utf8');
-  const block = pipeline.match(/var canonicalDiscardReasons = \[\]string\{([\s\S]*?)\}/);
-  assert.ok(block, 'canonicalDiscardReasons not found in pipeline.go');
-  assert.deepEqual([...block[1].matchAll(/"([^"]+)"/g)].map(match => match[1]), ids);
 });

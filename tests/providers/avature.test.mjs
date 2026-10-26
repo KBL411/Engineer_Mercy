@@ -258,8 +258,7 @@ try {
 
   // Empty board vs a broken selector — a first page carrying posting-shaped
   // JobDetail links but zero parsed articles is a markup change, not a quiet
-  // board; assertParsedSomething is the guard, mirrored by itviec.mjs's
-  // assertParsedSomething.
+  // board; assertParsedSomething is the guard.
   {
     let threw = false;
     try {

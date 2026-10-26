@@ -34,8 +34,8 @@ Before writing any user-visible prose, read `config/profile.yml` if it exists.
 
 Examples:
 
-- `language.output: en` + `language.modes_dir: modes/de` → write the report in English, using DACH market concepts where relevant.
-- `language.output: en` + `language.modes_dir: [modes, modes/zh]` → keep English prose, load both shared contexts, and choose market concepts from the JD's jurisdiction, currency, benefits, and legal signals — not language alone.
+- `language.output: en` + `language.modes_dir: modes/fr` → write the report in English, using French market concepts (CDI/CDD, SYNTEC, RTT) where relevant.
+- `language.output: en` + `language.modes_dir: [modes/fr, modes]` → keep English prose, load both shared contexts, and choose market concepts from the JD's jurisdiction, currency, benefits, and legal signals — not language alone.
 - Missing `language.output` → write in English.
 
 If the declared markets remain genuinely ambiguous after reviewing the JD, the behavior depends on the execution path: an interactive session asks the candidate and stops before writing or merging until they choose. This batch worker is unattended, so nobody can answer: continue with the first/primary market and state both the ambiguity and that fallback explicitly in the report header or Block G before writing the report and tracker entry.

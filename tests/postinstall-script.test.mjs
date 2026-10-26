@@ -41,12 +41,11 @@ if (postinstall.includes('playwright install chromium')) {
 }
 
 // PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD is Playwright's own "do not download
-// browsers" switch, but an explicit `playwright install` ignores it. The NixOS
-// dev shell (flake.nix) sets it and points PLAYWRIGHT_BROWSERS_PATH at the
-// read-only Nix store, where the installer cannot take its lock file: it
-// retried silently for about 10 minutes per attempt, so `npm install` hung for
-// about 20 and then failed. The script must skip the install when the variable
-// is truthy, and run it otherwise. `npx` is stubbed, so nothing downloads.
+// browsers" switch, but an explicit `playwright install` ignores it. Setting it
+// together with a PLAYWRIGHT_BROWSERS_PATH on a read-only location made the
+// installer retry silently for about 10 minutes per attempt, so `npm install`
+// hung for about 20 and then failed. The script must skip the install when the
+// variable is truthy, and run it otherwise. `npx` is stubbed, so nothing downloads.
 console.log('\n📦 package.json postinstall — honors PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD');
 
 const stubDir = mkdtempSync(join(tmpdir(), 'co-postinstall-'));

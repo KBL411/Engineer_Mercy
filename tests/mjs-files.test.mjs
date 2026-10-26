@@ -134,15 +134,6 @@ test('the syntax gate reaches past the repository root', () => {
   assert.ok(files.some((f) => f.startsWith('tests/')), 'tests/ must be inside the gate');
   assert.ok(files.some((f) => f.startsWith('providers/')), 'providers/ must be inside the gate');
   assert.ok(files.some((f) => f.startsWith('lib/')), 'lib/ must be inside the gate');
-
-  // web/ is the one opt-in subproject in this list (#2360): tests/, providers/
-  // and lib/ ship with every install, but a checkout that never took the web UI
-  // has no web/ on disk. Assert it's inside the gate when it exists; when it
-  // doesn't, the invariant is vacuously true — the same conditional the adjacent
-  // 'web/ test discovery contract' check already uses instead of hardcoding it.
-  if (existsSync(join(ROOT, 'web'))) {
-    assert.ok(files.some((f) => f.startsWith('web/')), 'web/ must be inside the gate when present');
-  }
 });
 
 test('a nested checkout is not walked as this repository\u2019s source', () => {
@@ -638,7 +629,7 @@ test('both syntax checkers derive their file list from the shared collector', ()
   }
 
   // Scoped to section 1 rather than the whole file: test-all.mjs legitimately
-  // walks other subtrees for other reasons (plugins/, web/), and a
+  // walks other subtrees for other reasons (plugins/), and a
   // whole-file ban would fail on those. What must not come back is a walk
   // feeding THIS gate — that is the drift, and re-reading a directory here is
   // the only way to reintroduce it.

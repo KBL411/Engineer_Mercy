@@ -104,16 +104,6 @@ for (const typo of ['--dry_run', '--dryRun', '-dry-run', '--dry-run=true']) {
   cleanup(sb);
 }
 
-// ── Test 3: web/src/app/api/tracker/delete/route.ts's exact argv (the
-//    web-core-argv-contract shape) must keep working unchanged. ──
-{
-  const sb = makeSandbox();
-  const r = runTracker(['delete', '--num', '1', '--dry-run'], sb);
-  if (r.status === 0) pass('the web delete route\'s exact argv still exits 0');
-  else fail(`the web delete route's exact argv — expected exit 0, got ${r.status}: ${r.all}`);
-  cleanup(sb);
-}
-
 // ── Test 4: a mistyped flag on every OTHER subcommand is rejected too — the
 //   bug was never delete-specific, just most visible there. ──
 const OTHER_TYPOS = [

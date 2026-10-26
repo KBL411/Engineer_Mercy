@@ -31,7 +31,7 @@
 # BILINGUAL TERMS: where the source framework is non-English (e.g. Japan),
 # topics carry BOTH the original terms and English glosses — transcripts may
 # be in either language, and this composes with the market vocabulary modes
-# (e.g. modes/ja).
+# (e.g. modes/fr).
 #
 # Schema per entry (list under `protected_grounds`):
 #   jurisdiction: string        — code, e.g. CA-ON, JP, US-federal, UK

@@ -41,8 +41,7 @@ In short:
   before writing code. A `Disallow` under `User-agent: *` (or a group
   matching the scanner) that covers the listing paths the provider reads is
   a stop (precedent: Lagou); a `Disallow` on routes the parser never touches
-  — `/api`, `/data`, a subscribe form — is not (ITviec, CareerViet route
-  around theirs). A rule that only names an AI/agent crawler (`ClaudeBot`,
+  — `/api`, `/data`, a subscribe form — is not. A rule that only names an AI/agent crawler (`ClaudeBot`,
   `anthropic-ai`) doesn't name the scanner — a distinct, bounded
   `career-ops` fetcher — but a scan can still feed a later model-driven
   `pipeline` step, so honouring it is a maintainer call on a source
@@ -83,7 +82,7 @@ export default {
   2. **Explicit-only** — `return entry?.provider === '{id}' ? { url: FEED_URL } : null`
      for a board-wide feed with no per-entry URL (`larajobs.mjs`).
   3. **Omit `detect()`** — the provider is then reachable only by an explicit
-     `provider: {id}` in `portals.yml` (`yourator.mjs`).
+     `provider: {id}` in `portals.yml` (`flowxtra.mjs`).
   A branded/unrecognizable domain must **not** be matched by a URL-pattern
   `detect()` — use shape 2 or 3 instead, so the provider never claims an
   entry the user did not point at it.
@@ -124,11 +123,10 @@ export default {
   is opt-in enrichment: an entry with `fetchDetails: true` (plus an optional
   `detailLimit` cap) makes the provider fetch per-posting detail to fill
   `description`, bounded by `detailLimit` and skipped entirely while a health
-  probe runs (reference: `eploy.mjs`; find the rest with
+  probe runs (reference: `smartrecruiters.mjs`; find the rest with
   `grep -l fetchDetails providers/*.mjs`). That enrichment is
   opt-in *only*: gate the whole detail loop on the entry config asking for
-  it **and** on not being in a probe — `eploy.mjs`
-  (`if (!fetchDetails || probing) return jobs;`), `peoplesoft.mjs`
+  it **and** on not being in a probe — `smartrecruiters.mjs`
   (`if (fetchDetails && !probing)`). A provider that fetches
   per-posting detail on every scan, with no config switch, defeats the
   opt-in and puts the per-posting request fan-out back on the default path;
@@ -138,8 +136,8 @@ export default {
   link alongside its own posting page — `Job.url` is the employer's link, per
   Source Indexing Policy rule 2 ("the shortest verifiable path to the
   employer"); the source's own page is the fallback, used only when the
-  upstream link is missing or not `https:`. Reference: `resolveYouratorUrl`
-  in `providers/yourator.mjs` and the equivalent in `providers/remotli.mjs`.
+  upstream link is missing or not `https:`. Reference: `resolveUrl`
+  in `providers/remotli.mjs`.
   A single-company ATS adapter has one natural posting URL and nothing to
   choose — that URL is the canonical one.
 
@@ -155,7 +153,7 @@ against `tracked_companies:`, an aggregator/feed against `job_boards:`. The
 file's header comment must name the target list — reference
 `providers/ibm.mjs` and `providers/dassault.mjs` for a single-company
 `tracked_companies:` adapter, `providers/remotli.mjs` and
-`providers/yourator.mjs` for a `job_boards:` aggregator/feed.
+`providers/flowxtra.mjs` for a `job_boards:` aggregator/feed.
 
 ### The `enrichDate` hook (optional, rarely needed)
 
@@ -250,12 +248,11 @@ it is inert until the provider is added there.
   following it (e.g. to tell an empty-board redirect from a dead-tenant one)
   passes `redirect: 'manual'`: `ctx.fetch*` then throws a structured error
   carrying `.status` and `.location` (see `_http.mjs`; `providers/jobvite.mjs`
-  and `providers/telegram-channel.mjs` use it — a 302 to a login page then
-  reads as a named failure rather than a generic one). Actually following a
+  uses it — a 302 to a login page then reads as a named failure rather
+  than a generic one). Actually following a
   hop is out — if a source only serves content
   past a bootstrap 3xx, target the settled URL directly
-  (`providers/deutschebahn.mjs` — a portal that 302s into its own results
-  endpoint) or rewrite a known static 3xx up front (`providers/builtin.mjs` —
+  or rewrite a known static 3xx up front (`providers/builtin.mjs` —
   bare hosts that 301 to `www`). The one case that needs an actual follow is
   a session-establishing bootstrap 3xx whose target is not knowable ahead of
   time — a portal that bounces through a session or theme-negotiation hop
@@ -316,7 +313,7 @@ surface instead of reading as `0` jobs forever. Three outcomes:
   populated board carries: posting-shaped links (an `href` to a
   detail-page path) present in the HTML but zero cards parsed ⇒ a markup
   change → `throw`; neither the links nor the cards present ⇒ a genuinely
-  empty board → `[]`. Reference: `providers/itviec.mjs`
+  empty board → `[]`. Reference: `providers/avature.mjs`
   (`assertParsedSomething` — detail-page hrefs matched by shape but no row
   built ⇒ throw), called on the first page only. `icims.mjs` does not draw
   this line at all (zero cards on a page is read as "past the last page");
@@ -337,7 +334,7 @@ surface instead of reading as `0` jobs forever. Three outcomes:
   stop ends the pass one or more pages early. Keep the shared set for output
   de-dup, but key each pass's stop off the source's own page shape (an empty
   page, or a count `< PAGE_SIZE`). Reference: `providers/oraclecloud.mjs`
-  (`item.requisitionList.length`), `providers/jobbankca.mjs` (`rawEntryCount`).
+  (`item.requisitionList.length`).
 - Dates: a date *string* through `Date.parse` can return `NaN`. Don't write
   `Date.parse(s) || undefined` (it also nulls a valid epoch `0` — a
   `1970-01-01` timestamp) — use a NaN-safe helper. Its `!value` guard is for
@@ -375,10 +372,10 @@ that page. The helper returns `null` instead, so you drop exactly the one bad
 posting — the same as a posting with no `id`. It returns `null` rather than a
 `U+FFFD` substitute on purpose: a degraded value flows on into
 `data/scan-history.tsv`, the tracker, and generated documents as ill-formed
-UTF-8, and where the encoded value is also the dedup key (`arbeitsagentur`,
-`vdab`) it would collide distinct bad postings onto one key. Reference: the
+UTF-8, and where the encoded value is also the dedup key (`phenom`'s `jobId`)
+it would collide distinct bad postings onto one key. Reference: the
 wired providers in `tests/providers/url-encoding-surrogate.test.mjs`
-(`alibaba`, `bamboohr`, `phenom`, …).
+(`bamboohr`, `jibeapply`, `phenom`).
 
 Scope is exactly this case — a **host-controlled** API field becoming a URL
 path segment in a loop. A **config-derived** segment (a company slug from
@@ -388,10 +385,7 @@ config is the wrong trade — but still `encodeURIComponent`'d, and computed
 **once outside the row loop**. A structural `/`, `?` or `#` then stays
 escaped so the URL is well-formed, and a genuinely broken value (a lone
 surrogate) throws there, as the loud config error it is, instead of
-silently once per posting. `garena.mjs` splits the two explicitly —
-`urlSegment()` throws for the config `office`, `idUrlSegment()` drops for
-the response `id`; `tkms.mjs`'s `parseQuery` hoists its locale
-`encodeURIComponent` out of the loop for the same reason. A value a regex
+silently once per posting. A value a regex
 has already restricted to safe characters (`4dayweek.mjs`'s slug `SLUG_RE`,
 which rejects a surrogate before this line) or encoded inside its own
 try/catch needs nothing further.
@@ -399,7 +393,7 @@ try/catch needs nothing further.
 The mirror case on decode: `decodeURIComponent` on a scraped href segment
 also throws `URIError` on a malformed percent-escape (`%ZZ`) — wrap it in
 try/catch with a fallback to the raw segment (reference: `workday.mjs`,
-`successfactors.mjs`, `rheinmetall.mjs`).
+`successfactors.mjs`).
 
 ### HTML entities — use the shared decoder
 
@@ -474,7 +468,7 @@ When `ctx.maxPages` is set, `verify-portals` is running a liveness probe
 (`maxPages: 1`), not a scan. Two things follow.
 
 **Cap the walk (SHOULD).** Stop after `ctx.maxPages` pages, and skip any
-per-posting `fetchDetails` / detail enrichment (`eploy`, `peoplesoft`) —
+per-posting `fetchDetails` / detail enrichment (`smartrecruiters`, `taleo`) —
 the probe has no use for it. Reference `providers/workday.mjs`:
 
 ```js
@@ -497,8 +491,8 @@ unknown", not a broken board. If a per-page / per-keyword `catch` swallows it
 into `[]` or rethrows it as a `new Error(...)`, the probe misreads a healthy
 board as `missing`. So when `ctx.maxPages` is set, propagate a `ctx.fetch*`
 rejection **unwrapped**. In a real scan (no `ctx.maxPages`) the recall-first
-"swallow and keep the pages so far" behavior is still fine — `vdab.mjs` shows
-both branches.
+"swallow and keep the pages so far" behavior is still fine — `rippling.mjs`
+shows both branches.
 
 Keep the "raise `max_pages`" warning tied to the
 `entry.max_pages` / `DEFAULT_MAX_PAGES` stop — never to a `ctx.maxPages` cap
@@ -520,15 +514,13 @@ per-posting detail fetches:
   of `fetch()` — the whole target lost. The imported `sleep(ms, ctx)` uses
   the ctx clock when there is one and a real timer otherwise. 150–250 ms is
   the norm; raise it
-  only where throttling was actually observed (`careerviet`, `itviec` at
-  750 ms) or a published rate limit dictates it (`agentic-jobs` at 2100 ms
-  for 30 req/60 s). Don't gold-plate a feed that never complained. A
+  only where throttling was actually observed or a published rate limit
+  dictates it (`agentic-jobs` at 2100 ms for 30 req/60 s). Don't gold-plate a feed that never complained. A
   `robots.txt` `Crawl-delay` (rule 6), when the source states one, is a
   reasonable floor for `INTER_PAGE_DELAY_MS` directly, no need to observe
   throttling first. It governs spacing *between* requests, not a mandatory
   pause before the first one — `Crawl-delay` isn't even part of RFC 9309,
-  the base robots.txt spec (`jobbankca.mjs` delays before page 1 too, but
-  that's a per-provider choice, not something rule 6 requires).
+  the base robots.txt spec.
 - **Bounded retry.** Wrap every page fetch — and the one-shot
   config-resolving fetch before pagination, if any — in `fetchJsonWithRetry`
   / `fetchTextWithRetry` (`_http.mjs`). They retry 429, any 5xx, and
@@ -546,13 +538,12 @@ per-posting detail fetches:
   `fetchTextWithRetry` / `fetchJsonWithRetry`. Detail enrichment is
   best-effort: a detail fetch that exhausts retry is caught, the listing row
   kept as-is, and the sweep moves on — it never fails the run
-  (`eploy.mjs` — small parallel batches, `fetchTextWithRetry`, `sleep`
-  between batches; `peoplesoft.mjs` — sequential, paced per request).
+  (`jazzhr.mjs` — sequential, paced per request with `sleep`).
 
 **Exhaustion is your call, not the helper's.** `withRetry` rethrows; the
 error carries `.attempts` (the real request count). Decide per provider: keep
 the pages already collected and `warn` (`workday.mjs`), or fail loud rather
-than hand back a silent partial board (`a16z-speedrun-talent.mjs`). Either
+than hand back a silent partial board. Either
 way, the "raise `max_pages`" warning must **not** fire when pagination
 stopped on a fetch error — that message means the ceiling truncated a
 healthy board, not that the board broke.
@@ -579,9 +570,7 @@ not `cap`, and nothing warns. Only a full page at the cap boundary is a
 `cap` stop; a source-reported `total` disambiguates a full boundary page
 too. Gating the incomplete marker on the page index alone
 (`page === lastAllowedPage`) tags a naturally-short final page as
-truncated. Reference: `eightfold.mjs` ("a short page has to win");
-`jobbankca.mjs` keys the stop off `rawEntryCount`, the feed's own
-`<entry>` count.
+truncated. Reference: `eightfold.mjs` ("a short page has to win").
 
 A paginating JSON API can also hit a hard, source-side result-window
 ceiling that looks nothing like a short page: every page up to some round
@@ -683,7 +672,7 @@ went through them. Must cover:
   returns `[]` (`join.mjs`). For a regex scraper with no container to
   type-check, the throwing fixture must carry the listing signal (a
   detail-page href in the HTML) with zero rows parsed, and the `[]` fixture
-  must carry neither (`itviec.mjs`).
+  must carry neither (`avature.mjs`).
 - Pagination (if any): the provider's own `DEFAULT_MAX_PAGES` stops it even
   when the source reports more pages; `ctx.maxPages` stops it earlier. For a
   provider that fans out over several query/category passes behind one shared
@@ -697,7 +686,7 @@ went through them. Must cover:
 - `fetchDetails` + a failed detail fetch (if any): a detail fetch that
   exhausts retry is caught, the listing row comes back intact, and the sweep
   finishes — enrichment failure is never fatal to the target
-  (reference: `eploy.test.mjs`, which also retries a transient error first).
+  (reference: `smartrecruiters.test.mjs`, "A failing detail fetch is an enrichment only").
 - `detailLimit` (if `fetchDetails`): a test caps the detail-fetch count at
   `detailLimit` however many postings match — `smartrecruiters.test.mjs`
   runs 40 postings at `detailLimit: 10` and asserts exactly 10 detail calls.
@@ -706,7 +695,7 @@ went through them. Must cover:
   enrichment calls — a non-paginating provider that skips the detail loop
   under the probe still owes this assertion; and a `ctx.fetch*` rejection
   *while `ctx.maxPages` is set* propagates unwrapped — not swallowed to
-  `[]`, not rewrapped (reference: `vdab.test.mjs`).
+  `[]`, not rewrapped (reference: `rippling.test.mjs`).
 - HTML parsing (if any): a fixture title with an entity comes out decoded
   *before* the keyword match runs (an encoded `&amp;` must not drop the job —
   #2923), not just that `decodeEntities` was called.
@@ -734,11 +723,11 @@ Dev loop: `node test-all.mjs --only providers/{name}`. Before a PR: the full
 | Pagination honoring `ctx.maxPages` | `providers/workday.mjs` |
 | HTML scraping with the shared `decodeEntities` | `providers/icims.mjs` |
 | SSR JSON inside HTML (`__NEXT_DATA__`) | `providers/join.mjs` |
-| Empty board vs a broken selector, told apart | `providers/join.mjs` (array shape), `providers/itviec.mjs` (regex scraper) |
+| Empty board vs a broken selector, told apart | `providers/join.mjs` (array shape), `providers/avature.mjs` (regex scraper) |
 | Wildcard-tenant host allowlisting (anchored, not a `Set`) | `providers/bamboohr.mjs`, `providers/workday.mjs` |
 | RSS parsed in-process | `providers/larajobs.mjs` |
 | `job.url` from a host-controlled `id` / `slug` via `safeEncodeURIComponent` | `providers/phenom.mjs`, `providers/bamboohr.mjs` |
-| Retry/backoff via the shared helper, default policy | `providers/a16z-speedrun-talent.mjs`, `providers/getro.mjs` |
+| Retry/backoff via the shared helper, default policy | `providers/getro.mjs` |
 | Retry/backoff via the shared helper, policy override | `providers/workday.mjs`, `providers/oraclecloud.mjs` |
 | Detecting a clamped `total`, recovering it via query fan-out + dedup | `providers/workday.mjs` (facet split) |
 

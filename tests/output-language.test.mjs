@@ -18,7 +18,7 @@ function check(condition, message) {
 }
 
 check(parseOutputLanguage('language:\n  output: de\n') === 'de', 'reads language.output');
-check(parseOutputLanguage('language:\n  modes_dir: modes/de\n') === 'en', 'defaults to en when output is absent');
+check(parseOutputLanguage('language:\n  modes_dir: modes/fr\n') === 'en', 'defaults to en when output is absent');
 check(parseOutputLanguage('language: [invalid') === 'en', 'defaults to en for malformed YAML');
 check(parseOutputLanguage('language:\n  output: 42\n') === 'en', 'rejects non-string output values');
 check(parseOutputLanguage('language:\n  output: " zh-CN "\n') === 'zh-CN', 'trims a configured language tag');

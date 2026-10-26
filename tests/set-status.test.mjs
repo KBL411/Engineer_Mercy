@@ -257,8 +257,8 @@ const TRACKER_REPORT_MISMATCH = `# Applications Tracker
 // LETTER, not just punctuation. Any title written entirely in Japanese, Arabic
 // or Cyrillic keyed to "", two different titles compared equal ("" === ""), and
 // the guard that exists to stop a status reaching the wrong row accepted the
-// mismatch and wrote. The repo ships modes/ja/, modes/ar/ and modes/ru/, so
-// these are shipped-market titles, not exotica. Company matching already used
+// mismatch and wrote. Japanese, Arabic and Russian titles are real
+// input for a candidate's tracker, not exotica. Company matching already used
 // the Unicode-aware normalizeTextKey; only the role guard was left ASCII-only.
 {
   const TRACKER_CJK = `# Applications Tracker
@@ -319,7 +319,7 @@ const TRACKER_REPORT_MISMATCH = `# Applications Tracker
 
 // ── 1g. The same collapse hits Arabic and Cyrillic (#2670) ─
 // Not a CJK quirk: `[^a-z0-9]` deletes every letter outside the Latin range,
-// so modes/ar/ and modes/ru/ titles were equally unprotected.
+// so Arabic and Russian titles were equally unprotected.
 {
   const sb = makeSandbox(`# Applications Tracker
 

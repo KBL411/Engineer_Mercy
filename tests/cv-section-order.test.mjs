@@ -837,7 +837,7 @@ try {
   // ── #3658: Chinese CVs reach the same two mechanisms ──────────────────────
 
   // SECTION_ALIASES carried English and Polish only, so for the two Chinese
-  // markets this repo ships modes for (modes/zh-TW, modes/zh) every rendered
+  // markets (Traditional and Simplified) every rendered
   // title fell through sectionKey()'s "return the normalized title" branch.
   // Nothing then matched a canonical key, so cv.sections resolved fewer than
   // two blocks and returned the document untouched — a silent no-op, and the
@@ -862,7 +862,7 @@ ${sections.join('\n')}</div>
 </html>
 `;
 
-  // Traditional (modes/zh-TW), scrambled exactly like scrambledHtml: Education
+  // Traditional Chinese, scrambled exactly like scrambledHtml: Education
   // and Certifications hoisted ahead of Experience and Projects.
   const zhTwScrambled = zhDocument([
     zhSection('PROFESSIONAL SUMMARY', '專業摘要', '<div class="summary-text">Summary body.</div>'),
@@ -872,7 +872,7 @@ ${sections.join('\n')}</div>
     zhSection('PROJECTS', '專案', '<div class="project">P</div>'),
     zhSection('SKILLS', '技能', '<div class="skills-grid">K</div>'),
   ]);
-  // Simplified (modes/zh), with the vocabulary that market actually uses.
+  // Simplified Chinese, with the vocabulary that market actually uses.
   const zhCnScrambled = zhDocument([
     zhSection('PROFESSIONAL SUMMARY', '专业摘要', '<div class="summary-text">Summary body.</div>'),
     zhSection('EDUCATION', '学历', '<div class="edu-item">E</div>'),
@@ -884,8 +884,8 @@ ${sections.join('\n')}</div>
 
   const zhOrder = ['experience', 'projects', 'skills', 'education', 'certifications'];
   const zhCases = [
-    ['Traditional (modes/zh-TW)', zhTwScrambled, ['專業摘要', '工作經歷', '專案', '技能', '學歷', '證照']],
-    ['Simplified (modes/zh)', zhCnScrambled, ['专业摘要', '工作经历', '项目', '技能', '学历', '证书']],
+    ['Traditional Chinese', zhTwScrambled, ['專業摘要', '工作經歷', '專案', '技能', '學歷', '證照']],
+    ['Simplified Chinese', zhCnScrambled, ['专业摘要', '工作经历', '项目', '技能', '学历', '证书']],
   ];
 
   for (const [label, html, expectedTitles] of zhCases) {

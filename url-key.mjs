@@ -273,7 +273,7 @@ export function aggregatorPostingId(raw) {
  * Promote a known identity-bearing SPA fragment into a functional query key
  * before generic URL normalization drops the fragment. Most fragments are
  * presentation-only. The narrow exceptions are recognized `#/job/{id}` and
- * `#/jobs/{id}` routes; MokaHR keeps its established board-specific key.
+ * `#/jobs/{id}` routes.
  *
  * The emitted/public URL remains untouched; this mutates only the URL object
  * used to build a comparison key.
@@ -286,10 +286,6 @@ export function promoteKnownFragmentIdentity(url) {
   let jobId;
   try { jobId = decodeURIComponent(match[1]); } catch { return; }
   if (!jobId) return;
-  if (url.hostname.toLowerCase() === 'app.mokahr.com') {
-    url.searchParams.append('mokahr_job_id', jobId);
-    return;
-  }
   url.searchParams.append('_career_ops_fragment_job_id', jobId);
 }
 

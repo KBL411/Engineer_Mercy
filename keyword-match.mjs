@@ -170,11 +170,9 @@ export function analyzeCoverage(keywords, cvText) {
 }
 
 /**
- * The keyword section's heading as each evaluation mode writes it. Only
- * modes/oferta.md, modes/ar/fursah.md and modes/ja/kyujin.md use the English
- * title; the other sixteen modes translate it, so their reports had no block
- * this reader could find and the coverage check modes/pdf.md runs on the
- * tailored CV exited 1 on every one of them.
+ * The keyword section's heading as each evaluation mode writes it: the English
+ * title in modes/oferta.md, the French one in modes/fr/offre.md. Reports in any
+ * other language are unsupported.
  *
  * Each title is copied from the mode that writes it, never translated here, the
  * sourcing rule ARCHETYPE_LABELS in analyze-patterns.mjs follows. A title stays
@@ -183,34 +181,17 @@ export function analyzeCoverage(keywords, cvText) {
  * and fails on a keyword heading that is missing here.
  */
 export const KEYWORDS_HEADINGS = [
-  'Keywords extracted',             // en, ar, ja — modes/oferta.md, modes/ar/fursah.md, modes/ja/kyujin.md
+  'Keywords extracted',             // en — modes/oferta.md
   'Extracted Keywords',             // en — batch/batch-prompt.md (batch workers)
-  'Udtrukne nøgleord',              // da — modes/da/oferta.md
-  'Extrahierte Keywords',           // de — modes/de/angebot.md
-  'Palabras clave extraídas',       // es — modes/es/oferta.md
   'Mots-cles extraits',             // fr — modes/fr/offre.md
-  'निकाले गए Keywords',             // hi — modes/hi/naukri.md
-  'Kata kunci terekstraksi',        // id — modes/id/lowongan.md
-  'Parole chiave estratte',         // it — modes/it/annuncio.md
-  '추출한 키워드',                  // ko — modes/ko/gonggo.md
-  'Geextraheerde trefwoorden',      // nl — modes/nl/vacature.md
-  'Wyekstrahowane słowa kluczowe',  // pl — modes/pl/oferta.md
-  'Keywords extraídas',             // pt — modes/pt/oferta.md
-  'Извлечённые ключевые слова',     // ru — modes/ru/oferta.md
-  'Çıkarılan Anahtar Kelimeler',    // tr — modes/tr/is-ilani.md
-  'Витягнуті ключові слова',        // ua — modes/ua/oferta.md
-  'ATS 关键词提取',                 // zh — modes/zh/oferta.md
-  'ATS 關鍵字擷取',                 // zh-TW — modes/zh-TW/oferta.md
 ];
 
 /**
- * Comparison key for a heading title: case, runs of whitespace and Latin or
- * Cyrillic accents are ignored. Accents matter in practice: modes/fr/offre.md
- * writes `Mots-cles`, which French spells with an accent that agents restore
- * (analyze-patterns.mjs meets the same slip as `Archétype`), and Russian is
- * often typed with `е` for `ё`. Only U+0300–U+036F is removed after NFD;
- * Devanagari vowel signs and Hangul jamo lie outside that block, so those
- * titles still compare exactly.
+ * Comparison key for a heading title: case, runs of whitespace and Latin
+ * accents are ignored. Accents matter in practice: modes/fr/offre.md writes
+ * `Mots-cles`, which French spells with an accent that agents restore
+ * (analyze-patterns.mjs meets the same slip as `Archétype`). Only
+ * U+0300–U+036F is removed after NFD.
  *
  * @param {string} title - Heading text after the `##`.
  * @returns {string} Comparison key.

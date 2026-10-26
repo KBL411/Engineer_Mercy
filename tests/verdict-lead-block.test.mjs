@@ -5,8 +5,7 @@
 // file, not as a section of the harness (CONTRIBUTING.md, tests/README.md).
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { pathToFileURL } from 'url';
-import { pass, fail, warn, ROOT } from './helpers.mjs';
+import { pass, fail, ROOT } from './helpers.mjs';
 
 console.log('\nVerdict (lead) block across evaluation modes');
 
@@ -22,50 +21,35 @@ function readFile(path) {
   return content;
 }
 
-// The heading shape the report parser recognizes. web/src/lib/report-sections.mjs
-// (imported by web/src/components/report-view.tsx) splits a body on /^##\s+(.*)$/
-// and promotes a heading ending in `(lead)` or `(verdict)`. The mode contract
-// requires the language-invariant `(lead)` marker (modes/oferta.md), so this
-// guard matches `(lead)` only. `##` must be followed by whitespace, any kind
-// but a newline, as `\s` reads it there. `##Verdict (lead)` and
+// The heading shape the report contract requires. A report body is split on
+// /^##\s+(.*)$/ and a heading ending in `(lead)` is the lead verdict. The mode
+// contract requires the language-invariant `(lead)` marker (modes/oferta.md),
+// so this guard matches `(lead)` only. `##` must be followed by whitespace, any
+// kind but a newline, as `\s` reads it there. `##Verdict (lead)` and
 // `### Verdict (lead)` are not sections at all, and a guard that accepted them
-// would pass on a heading the web view never promotes.
+// would pass on a heading that is never read as the lead verdict.
 const LEAD_HEADING = /^##[^\S\n]+[^\n]*\(lead\)[^\S\n]*$/gmi;
 const leadHeadings = (text) => {
   LEAD_HEADING.lastIndex = 0;
   return [...text.matchAll(LEAD_HEADING)];
 };
 
-// The guard itself: it must accept every `(lead)` heading the parser promotes
-// and reject what the parser does not read as a heading. A bare `## Verdict`
-// and a `(verdict)` heading are promoted by the parser and rejected here on
-// purpose, because the `(lead)` marker is the contract.
-//
-// web/ is not in update-system.mjs's SYSTEM_PATHS but tests/ is, so this file
-// reaches checkouts with no web/ at all, where a static import would fail the
-// whole file (#1675 / #1677). Only this check needs the parser, so only this
-// check is skipped; a parser missing under a present web/ is a move and fails.
-const WEB_REPORT_SECTIONS = join(ROOT, 'web', 'src', 'lib', 'report-sections.mjs');
-if (!existsSync(join(ROOT, 'web', 'src'))) {
-  warn('web/ not present in this checkout, skipping the lead-heading parser check');
-} else if (!existsSync(WEB_REPORT_SECTIONS)) {
-  fail('web/ exists but web/src/lib/report-sections.mjs is missing, so the lead-heading parser check cannot run (moved?)');
-} else {
-  const { splitSections, isVerdictHeading } = await import(pathToFileURL(WEB_REPORT_SECTIONS).href);
+// The guard itself: it must accept every `(lead)` section heading and reject
+// what is not read as a heading. A bare `## Verdict` and a `(verdict)` heading
+// are rejected on purpose, because the `(lead)` marker is the contract.
+{
   const accepted = ['## Verdict (lead)', '## Veredicto (lead)', '## 结论 (lead)', '##\tVeredicto (lead)', '##\u00a0Verdict (lead)'];
   const rejected = ['##Verdict (lead)', '### Verdict (lead)', '#Verdict (lead)', 'Verdict (lead)'];
   const contractRejected = ['## Veredicto (verdict)', '## Verdict'];
-  const parserPromotes = (line) =>
-    splitSections(`${line}\nbody`).sections.some((sec) => isVerdictHeading(sec.heading));
   const wrong = [
-    ...accepted.filter((l) => leadHeadings(l).length !== 1 || !parserPromotes(l)),
-    ...rejected.filter((l) => leadHeadings(l).length !== 0 || parserPromotes(l)),
-    ...contractRejected.filter((l) => leadHeadings(l).length !== 0 || !parserPromotes(l)),
+    ...accepted.filter((l) => leadHeadings(l).length !== 1),
+    ...rejected.filter((l) => leadHeadings(l).length !== 0),
+    ...contractRejected.filter((l) => leadHeadings(l).length !== 0),
   ];
   if (wrong.length > 0) {
-    fail(`lead-heading guard misjudges, against the report parser or the (lead) contract: ${wrong.map((l) => JSON.stringify(l)).join(', ')}`);
+    fail(`lead-heading guard misjudges the (lead) contract: ${wrong.map((l) => JSON.stringify(l)).join(', ')}`);
   } else {
-    pass(`lead-heading guard matches the report parser on ${accepted.length} accepted and ${rejected.length} rejected headings, and rejects ${contractRejected.length} the parser promotes without the (lead) marker`);
+    pass(`lead-heading guard accepts ${accepted.length} (lead) headings and rejects ${rejected.length} non-headings and ${contractRejected.length} headings without the (lead) marker`);
   }
 }
 
@@ -73,23 +57,22 @@ if (!existsSync(join(ROOT, 'web', 'src'))) {
 // The lead block is a report-contract element, so the contract guard has to
 // assert it. It cannot join REQUIRED_HEADINGS in test-all.mjs's localized
 // oferta.md parity check. That list matches literal substrings, the heading
-// noun is translated per locale, and every translated mode quotes the English
+// noun is translated per locale, and a translated mode may quote the English
 // form in prose as an example of the convention, so a
-// literal `## Verdict (lead)` entry would pass on zh, zh-TW and ru whether or
-// not those files carry a block. The `(lead)` marker is the language-invariant
-// part, and it is what cleanHeading in web/src/lib/report-sections.mjs reads,
-// so this matches the marker on a heading line. A heading line is not by
+// literal `## Verdict (lead)` entry would pass whether or not that file
+// carries a block. The `(lead)` marker is the language-invariant
+// part, so this matches the marker on a heading line. A heading line is not by
 // itself proof of a real block: every one of these files also illustrates the
 // block inside a fenced example, and those examples carry heading lines too.
 // What separates the template from documentation about it is the window. The
 // template is the one place where `## G)` is followed by `## Risk Summary`,
 // so the lead heading is required inside that run. Anchoring the run on the
-// LAST of each marker does not work: modes/tr/is-ilani.md puts its template
-// first and its prose second, so its last `## G)` and last `## Risk Summary`
-// sit ~140 lines apart and swallow the document.
+// LAST of each marker does not work: a mode that puts its template first and
+// its prose second has its last `## G)` and last `## Risk Summary` far apart,
+// swallowing the document.
 // Keyed on the report skeleton instead of the filename: a locale whose
-// evaluation mode is not named oferta.md (tr/is-ilani.md, ja/kyujin.md,
-// ar/fursah.md) is invisible to the oferta.md walk in test-all.mjs. A file
+// evaluation mode is not named oferta.md (modes/fr/offre.md)
+// is invisible to the oferta.md walk in test-all.mjs. A file
 // still at the pre-Block-G shape has no Block G for the lead block to follow,
 // so it drops out by carrying no `## H)` and no `## Risk Summary`, with no
 // allowlist to maintain.
@@ -104,8 +87,10 @@ if (!existsSync(join(ROOT, 'web', 'src'))) {
   const skeleton = modeFiles.map(f => [f, readFile(f)])
     .filter(([, t]) => t.includes('## H)') && t.includes('## Risk Summary'));
   const names = skeleton.map(([f]) => f);
-  if (names.length < 8 || !names.includes('modes/oferta.md') || !names.includes('modes/tr/is-ilani.md')) {
-    fail(`verdict-lead walk found ${names.length} full-skeleton modes (${names.join(', ')}) — expected ≥8 incl. modes/oferta.md and modes/tr/is-ilani.md; the check would be blind`);
+  // Only modes/oferta.md carries the full skeleton today: modes/fr/offre.md is
+  // still at the pre-Block-G shape and drops out, as the comment above says.
+  if (names.length < 1 || !names.includes('modes/oferta.md')) {
+    fail(`verdict-lead walk found ${names.length} full-skeleton modes (${names.join(', ')}) — expected ≥1 incl. modes/oferta.md; the check would be blind`);
   } else {
     const gaps = [];
     for (const [f, t] of skeleton) {

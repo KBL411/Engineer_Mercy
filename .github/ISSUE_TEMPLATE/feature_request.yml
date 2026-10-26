@@ -11,7 +11,7 @@ body:
     attributes:
       label: Code of Conduct
       options:
-        - label: I agree to follow the [Code of Conduct](https://github.com/career-ops-hq/career-ops/blob/main/CODE_OF_CONDUCT.md)
+        - label: I agree to follow the [Code of Conduct](https://github.com/KBL411/Engineer_Mercy/blob/main/CODE_OF_CONDUCT.md)
           required: true
   - type: checkboxes
     id: search
@@ -42,7 +42,6 @@ body:
         - Evaluation / Scoring
         - PDF Generation
         - Portal Scanner
-        - Dashboard TUI
         - Batch Processing
         - Language / i18n
         - Documentation

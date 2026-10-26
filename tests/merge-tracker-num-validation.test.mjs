@@ -9,7 +9,7 @@
 //
 // The other half of this suite is the regression the obvious fix causes.
 // `reserve-report-num.mjs` returns a zero-padded 3-digit string (`padStart(3,
-// '0')`), and both the batch prompt and web/src/lib/run-prompts.mjs hand that
+// '0')`), and the batch prompt hands that
 // straight to the `num` cell — so `035` is the canonical shape of every report
 // under 100. A `/^[1-9]\d*$/` validator rejects it and silently drops those
 // evaluations, which is strictly worse than the bug being fixed.

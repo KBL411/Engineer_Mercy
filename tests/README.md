@@ -5,7 +5,7 @@ Auto-discovered test files for the career-ops suite.
 ## Purpose
 
 `test-all.mjs` (repo root) is the suite runner: it executes its inline core
-checks (syntax, scripts, dashboard, data contract, personal data, paths) and
+checks (syntax, scripts, data contract, personal data, paths) and
 then auto-discovers every `*.test.mjs` file under this directory. There is no
 test framework by design — the suite must run on a fresh clone with only
 Node.js (`tests/helpers.mjs`).
@@ -33,23 +33,11 @@ Node.js (`tests/helpers.mjs`).
   `test-all.mjs`'s `scripts` list or invoked by a workflow, and
   `root-tests-registration.test.mjs` asserts every one of them is reachable.
 
-**Web tests do not live here.** `web/` runs its own `npm test` over
-`web/tests/**/*.test.mjs` (see [../web/README.md](../web/README.md)); this
-directory is for the core. The two suites also differ in style on purpose: web
-suites use `node:test`, while suites here use the `pass`/`fail` helpers because
-this suite must run on a bare clone with no framework — "not even `node:test`"
-(#1440). Don't carry either style across the boundary.
-
-The one exception to the split is a guard *about* web's layout —
-`web-test-layout.test.mjs` lives here on purpose, because `web-ci.yml` is
-informative by design and never blocks a merge, while `test-all.mjs` runs on
-every PR as a required check.
-
 ## Running
 
 ```bash
 node test-all.mjs                            # full suite — run before pushing
-node test-all.mjs --quick                    # full suite, skip dashboard build
+node test-all.mjs --quick                    # accepted for compatibility
 node test-all.mjs --only providers/themuse   # only matching tests/ files
 node test-all.mjs --quick --jobs 4           # at most 4 suites at a time
 ```

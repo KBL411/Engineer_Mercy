@@ -9,9 +9,8 @@
  * read-only — it reports missing archives; it must never be able to "fix" one
  * itself by writing a report or a jds/ file.
  *
- * Moved out of test-all.mjs (was section 75) per this repo's own path
- * instructions (.coderabbit.yaml: new numbered sections belong in tests/
- * files, not the central harness) and its precedent (#3863 moved the
+ * Moved out of test-all.mjs (was section 75): new numbered sections belong in
+ * tests/ files, not the central harness (precedent: #3863 moved the
  * context-budget suite the same way) — #3935.
  *
  * Run: node test-all.mjs --only jd-archive-wiring

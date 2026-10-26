@@ -26,13 +26,13 @@
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, utimesSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { format } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { resolveTsvColumns, resolveColumns, parseTrackerRow, HEADER_ALIASES, extractCellUrl } from '../tracker-parse.mjs';
+import { resolveTsvColumns, resolveColumns, parseTrackerRow, extractCellUrl } from '../tracker-parse.mjs';
 import { normalizeUrl } from '../url-key.mjs';
 import { canonicalizeTrackerPath } from '../path-resolver.mjs';
 import { mergeTracker } from '../merge-tracker.mjs';
@@ -41,18 +41,6 @@ import { loadSeenCompanyRoles } from '../scan.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const NODE = process.execPath;
-
-// web/ lives deliberately OUTSIDE the auto-updater's world (its own
-// release-please component; see validate-system-paths-coverage.mjs
-// EXCLUDE_PREFIXES), so installs updated via `update-system.mjs apply` have
-// the core WITHOUT the web/ tree. The web-reader tests below exercise the
-// real alias chain on fresh clones and CI, and skip cleanly on core-only
-// installs instead of crashing the whole suite with ERR_MODULE_NOT_FOUND.
-const HAS_WEB = existsSync(join(ROOT, 'web', 'src', 'lib', 'tracker-table.mjs'));
-const WEB = HAS_WEB ? {} : { skip: 'web/ not present (core-only install; web/ is excluded from the auto-updater by design)' };
-// Relative specifiers: an absolute path is not a valid ESM specifier on
-// Windows (`D:\...` reads as a URL scheme).
-const webTable = () => import('../web/src/lib/tracker-table.mjs');
 
 // tracker.mjs's index is node:sqlite. package.json now requires a Node that
 // ships it unflagged (22.13+, #4801), so this normally never skips; it stays
@@ -453,121 +441,6 @@ describe('contract: an unknown extra column', () => {
   });
 });
 
-// ── Test 8: web read path resolves headers via the SHARED alias table ───────
-// web/src/lib/tracker-table.mjs (behind readApplications() in career-ops.ts)
-// loads tracker-aliases.json — the same file tracker-parse.mjs exports as
-// HEADER_ALIASES — instead of mirroring it. Passing ROOT here exercises the
-// REAL alias file, so an alias added/renamed there is either honored by the
-// web reader too or fails this test; a second drifting table can't come back.
-describe('web reader: shared alias table', WEB, () => {
-  const WEB_10COL = `# Applications Tracker
-
-| # | Date | Company | Role | Location | Score | Status | PDF | Report | Priority | Notes |
-|---|------|---------|------|----------|-------|--------|-----|--------|----------|-------|
-| 1 | 2026-01-01 | Acme | Engineer | Remote | 4.0/5 | Applied | ✅ | — | high | seed row |
-`;
-  let web, rows, r;
-  before(async () => {
-    web = await webTable();
-    rows = web.parseApplications(WEB_10COL, ROOT);
-    r = rows[0];
-  });
-
-  test('web reader: Company/Role read by header on 10-col tracker', () => {
-    assert.equal(rows.length, 1);
-    assert.equal(r.company, 'Acme');
-    assert.equal(r.role, 'Engineer');
-  });
-  test('web reader: Score/Status not shifted by Location column', () => {
-    assert.equal(r.score, '4.0/5');
-    assert.equal(r.status, 'Applied');
-  });
-  test('web reader: unknown Priority column skipped, Notes intact', () => {
-    assert.equal(r.notes, 'seed row');
-  });
-  // Recognizing a column is not the same as delivering it: `location` is in
-  // tracker-aliases.json AND in WEB_FIELD, so detectColumnMap mapped it all
-  // along — and the emitter, written out by hand, dropped the value anyway.
-  // Same failure as Apply Link / Follow-up below, one step further along.
-  test('web reader: Location column reaches the caller', () => {
-    assert.equal(r.location, 'Remote');
-  });
-  // A tracker predating the column keeps working; the field reads as "".
-  test('web reader: tracker without a Location column still parses, field empty', () => {
-    const LEGACY_NO_LOCATION = `| # | Date | Company | Role | Score | Status | PDF | Report | Notes |
-|---|------|---------|------|-------|--------|-----|--------|-------|
-| 1 | 2026-01-01 | Acme | Engineer | 4.0/5 | Applied | ✅ | — | seed row |
-`;
-    const noLoc = web.parseApplications(LEGACY_NO_LOCATION, ROOT)[0];
-    assert.ok(noLoc);
-    assert.equal(noLoc.location, '');
-    assert.equal(noLoc.notes, 'seed row');
-  });
-  // The web reader and the Node tooling must consume the IDENTICAL table.
-  test('web reader: alias table is byte-identical to tracker-parse HEADER_ALIASES', () => {
-    const webAliases = web.loadHeaderAliases(ROOT);
-    assert.ok(Object.keys(webAliases).length > 0);
-    assert.equal(JSON.stringify(webAliases), JSON.stringify(HEADER_ALIASES));
-  });
-
-  // Every column the SHARED alias table resolves has to reach the caller, not
-  // just be recognized: "apply link" → applylink and "follow-up" → followup are
-  // in tracker-aliases.json, but WEB_FIELD mapped neither, so the web read path
-  // detected both columns and then dropped their values on the floor.
-  const WEB_APPLY_FOLLOWUP = `# Applications Tracker
-
-| # | Date | Company | Role | Score | Status | PDF | Report | Apply Link | Follow-up | Notes |
-|---|------|---------|------|-------|--------|-----|--------|------------|-----------|-------|
-| 1 | 2026-01-01 | Acme | Engineer | 4.0/5 | Applied | ✅ | — | [ad](https://example.com/jobs/1) | 2026-01-08 | seed row |
-`;
-  test('web reader: Apply Link / Follow-up columns reach the caller', () => {
-    const wide = web.parseApplications(WEB_APPLY_FOLLOWUP, ROOT)[0];
-    assert.ok(wide);
-    assert.equal(wide.applyLink, '[ad](https://example.com/jobs/1)');
-    assert.equal(wide.followUp, '2026-01-08');
-  });
-  test('web reader: Notes/Status unaffected by the two added fields', () => {
-    const wide = web.parseApplications(WEB_APPLY_FOLLOWUP, ROOT)[0];
-    assert.equal(wide.notes, 'seed row');
-    assert.equal(wide.status, 'Applied');
-  });
-  // A tracker predating those columns keeps working; the fields read as "".
-  // Its header IS recognized, so this covers the mapped branch with the two
-  // columns simply absent from the map.
-  test('web reader: 9-column tracker still parses, new fields empty', () => {
-    const LEGACY_9COL = `| # | Date | Company | Role | Score | Status | PDF | Report | Notes |
-|---|------|---------|------|-------|--------|-----|--------|-------|
-| 1 | 2026-01-01 | Acme | Engineer | 4.0/5 | Applied | ✅ | — | seed row |
-`;
-    const legacy = web.parseApplications(LEGACY_9COL, ROOT)[0];
-    assert.ok(legacy);
-    assert.deepEqual([legacy.applyLink, legacy.followUp, legacy.notes], ['', '', 'seed row']);
-  });
-  // The general rule the three field bugs are instances of: whatever WEB_FIELD
-  // names, a parsed row carries. Asserted on the shape rather than on any one
-  // field, so the next column added to the map cannot be dropped silently by
-  // an emitter that forgot it.
-  test('web reader: every WEB_FIELD name reaches the caller', () => {
-    const shaped = web.parseApplications(WEB_10COL, ROOT)[0];
-    const missing = web.WEB_FIELD_NAMES.filter((f) => !(f in shaped));
-    assert.deepEqual(missing, [], `fields named by the map but absent from the row (${web.WEB_FIELD_NAMES.length} fields)`);
-  });
-  // The fixed-order fallback is a SECOND path, reached only when no header is
-  // recognized at all — the shape of a tracker whose header row was edited or
-  // lost. The fixture above cannot reach it, so the branch that hard-codes the
-  // column order needs its own rows with no header above them.
-  test('web reader: headerless tracker takes the fixed-order path, new fields empty', () => {
-    const NO_HEADER = `| 1 | 2026-01-01 | Acme | Engineer | 4.0/5 | Applied | ✅ | — | seed row |
-`;
-    const positional = web.parseApplications(NO_HEADER, ROOT)[0];
-    assert.ok(positional);
-    assert.deepEqual(
-      [positional.company, positional.role, positional.applyLink, positional.followUp, positional.notes],
-      ['Acme', 'Engineer', '', '', 'seed row'],
-    );
-  });
-});
-
 // ═══ Stage 2 (#1596): Via column ════════════════════════════════════════════
 
 const HEADER_VIA = `# Applications Tracker
@@ -762,56 +635,6 @@ describe('verify-pipeline: Via checks', () => {
   });
 });
 
-// ── Test 16: web alias cache refreshes on change, never caches failure ──────
-// loadHeaderAliases caches per file to avoid a disk read+parse per request
-// (readApplications runs on every API route / page render), but the cache is
-// mtime-keyed: a missing/corrupt file is NEVER cached — recovery is picked up
-// without a server restart — and a rewritten file (system update changing the
-// alias table) is re-read on the next call.
-describe('web reader: alias cache refresh', WEB, () => {
-  let dir, missing, recovered, updated, corrupt, fixed;
-  before(async () => {
-    const { loadHeaderAliases } = await webTable();
-    dir = mkdtempSync(join(tmpdir(), 'co-alias-'));
-    const aliasFile = join(dir, 'tracker-aliases.json');
-    // Force distinct mtimes between rewrites — same-ms writes are otherwise
-    // indistinguishable on coarse-timestamp filesystems.
-    let tick = Date.now();
-    const bump = () => { tick += 2000; const t = new Date(tick); utimesSync(aliasFile, t, t); };
-
-    // (a) missing file → {} and NOT cached: creating the file afterwards is seen.
-    missing = loadHeaderAliases(dir);
-    writeFileSync(aliasFile, JSON.stringify({ '#': 'num', 'company': 'company' }));
-    recovered = loadHeaderAliases(dir);
-    // (b) file rewritten → new aliases visible without a process restart.
-    writeFileSync(aliasFile, JSON.stringify({ '#': 'num', 'req id': 'num' }));
-    bump();
-    updated = loadHeaderAliases(dir);
-    // (c) corrupt file → {} safely, and NOT cached: fixing it is seen.
-    writeFileSync(aliasFile, '{ not json');
-    bump();
-    corrupt = loadHeaderAliases(dir);
-    writeFileSync(aliasFile, JSON.stringify({ '#': 'num' }));
-    bump();
-    fixed = loadHeaderAliases(dir);
-  });
-  after(() => { if (dir) rmSync(dir, { recursive: true, force: true }); });
-
-  test('web reader: alias file created after a failed load is picked up (no restart)', () => {
-    assert.deepEqual(missing, {});
-    assert.equal(recovered['#'], 'num');
-    assert.equal(recovered.company, 'company');
-  });
-  test('web reader: rewritten alias file is re-read (mtime-keyed cache)', () => {
-    assert.equal(updated['req id'], 'num');
-    assert.equal(updated.company, undefined);
-  });
-  test('web reader: corrupt alias file yields {} and later fix is picked up', () => {
-    assert.deepEqual(corrupt, {});
-    assert.equal(fixed['#'], 'num');
-  });
-});
-
 // ── Test 17: pipe rows preserve empty interior cells ──────────────────────
 describe('merge: empty interior cells', () => {
   const EMPTY_PDF = '| 42 | 2026-01-01 | Foo | Bar Engineer | 4.0/5 | Evaluated |  | [42](reports/042-foo-2026-01-01.md) | some note |';
@@ -835,18 +658,15 @@ describe('merge: empty interior cells', () => {
   });
 });
 
-// ── Test 18: web reader honors the core's row-shape contract (#2369) ────────
-// The web reader mirrors parseTrackerRow's LOGIC (not just its alias table),
-// so it must agree with the core on which rows are readable at all:
+// ── Test 18: the row-shape contract of parseTrackerRow (#2369) ──────────────
 //   a) a row missing an INTERIOR cell shifts every later column one left, so
-//      the core REJECTS it (dynamic width guard in parseTrackerRow). The web
-//      reader used to accept it and render Score in the Role column.
+//      the core REJECTS it (dynamic width guard in parseTrackerRow).
 //   b) a hand-edited row WITHOUT the trailing pipe is one part narrower but
 //      complete (tracker-utils rebuildRow supports them), so the core reads
-//      its last cell. The web reader used to drop it via slice(1, -1).
+//      its last cell.
 // Realistic trigger for (a): a row written before `merge-tracker --migrate-via`
 // widened the header, so it carries no Via cell.
-describe('web reader: row-shape contract', WEB, () => {
+describe('parseTrackerRow: row-shape contract', () => {
   const VIA_HEADER = [
     '| # | Date | Company | Via | Role | Score | Status | PDF | Report | Notes |',
     '|---|------|---------|-----|------|-------|--------|-----|--------|-------|',
@@ -862,34 +682,27 @@ describe('web reader: row-shape contract', WEB, () => {
     '| 12 | 2026-01-01 | Acme | Hays | Engineer | 4.5/5 | Applied | ✅ | — | agency |',
     '| 13 | 2026-01-02 | Globex | Engineer | 4.0/5 | Applied | ✅ | — | pre-migration |',
   ].join('\n');
-  let parseApplications;
-  before(async () => { ({ parseApplications } = await webTable()); });
 
-  test('web reader: row missing an interior cell is rejected, like the core', () => {
-    const shiftedWeb = parseApplications(SHIFTED, ROOT);
-    const shiftedCore = coreRows(SHIFTED);
-    assert.equal(shiftedWeb.length, shiftedCore.length,
-      `web ${JSON.stringify(shiftedWeb.map(r => r.n))} vs core ${JSON.stringify(shiftedCore.map(r => String(r.num)))}`);
-    assert.ok(shiftedWeb.every(r => r.n !== '13'));
+  test('parseTrackerRow: row missing an interior cell is rejected', () => {
+    const rows = coreRows(SHIFTED);
+    assert.deepEqual(rows.map(r => String(r.num)), ['12']);
   });
   // The complete row next to it must still parse, unshifted.
-  test('web reader: the complete Via row next to it stays unshifted', () => {
-    const good = parseApplications(SHIFTED, ROOT).find(r => r.n === '12');
+  test('parseTrackerRow: the complete Via row next to it stays unshifted', () => {
+    const good = coreRows(SHIFTED).find(r => String(r.num) === '12');
     assert.ok(good);
     assert.deepEqual([good.via, good.role, good.score, good.status], ['Hays', 'Engineer', '4.5/5', 'Applied']);
   });
   // (b) no trailing pipe — the last cell is data, not padding.
-  test('web reader: row without a trailing pipe keeps its last cell', () => {
+  test('parseTrackerRow: row without a trailing pipe keeps its last cell', () => {
     const NO_TRAILING_PIPE = [
       '| # | Date | Company | Role | Score | Status | PDF | Report | Notes |',
       '|---|------|---------|------|-------|--------|-----|--------|-------|',
       '| 5 | 2026-01-01 | Acme | Engineer | 4.5/5 | Applied | ✅ | — | last note',
     ].join('\n');
-    const tailWeb = parseApplications(NO_TRAILING_PIPE, ROOT)[0];
-    const tailCore = coreRows(NO_TRAILING_PIPE)[0];
-    assert.ok(tailWeb && tailCore);
-    assert.equal(tailWeb.notes, 'last note');
-    assert.equal(tailCore.notes, 'last note');
+    const tail = coreRows(NO_TRAILING_PIPE)[0];
+    assert.ok(tail);
+    assert.equal(tail.notes, 'last note');
   });
 });
 
@@ -1037,9 +850,8 @@ describe('headed additions: optional columns by name', () => {
   });
   after(() => removeSandbox(sb));
 
-  // The TSV's url field stays a RAW URL (that boundary is the whole reason the
-  // first-party web, which writes these TSVs, needed no change for #3516); the
-  // tracker cell it lands in is written as a markdown link.
+  // The TSV's url field stays a RAW URL (that boundary is deliberate, #3516);
+  // the tracker cell it lands in is written as a markdown link.
   test('headed addition fills Via / Location / URL by name, URL rendered as a markdown link', () => {
     assert.equal(res.code, 0, res.stdout);
     assert.deepEqual(
@@ -1175,33 +987,33 @@ describe('headed additions: what optional-cell leniency must not accept', () => 
 });
 
 // The evaluate prompt no longer embeds a tracker row. The agent does not
-// write the addition. report-persist.trackerTsvLine is the web emitter, and
-// persist-evaluation-report.mjs writes those same bytes. A header spelled
+// write the addition. lib/tracker-addition.mjs trackerTsvLine is the emitter,
+// and persist-evaluation-report.mjs writes those same bytes. A header spelled
 // differently than tracker-aliases.json knows would not go red anywhere:
 // merge-tracker would read the row as headerless and fall back to content
 // sniffing, the path that cannot order two dash sentinels. Assert the
 // emitter's own lines against the real ingest.
-describe('web persist emitter: TSV header matches the ingest contract', WEB, () => {
+describe('persist emitter: TSV header matches the ingest contract', () => {
   let header, dataLine;
   before(async () => {
-    const { trackerTsvLine } = await import('../web/src/lib/report-persist.mjs');
+    const { trackerTsvLine } = await import('../lib/tracker-addition.mjs');
     const tsv = trackerTsvLine({
       num: '2', today: '2026-02-02', company: 'Globex', role: 'Manager',
       score: '4.5/5', reportFile: '2-globex-2026-02-02.md',
-      notes: 'row as the web persist emitter writes it', via: null,
+      notes: 'row as the persist emitter writes it', via: null,
       url: 'https://example.com/jobs/2',
     });
     const lines = tsv.replace(/\n$/, '').split('\n');
-    assert.equal(lines.length, 2, 'web persist emitter writes a header line and one data line');
+    assert.equal(lines.length, 2, 'persist emitter writes a header line and one data line');
     header = lines[0].split('\t');
     dataLine = lines[1];
   });
 
-  test('web persist emitter: every header label resolves through tracker-aliases.json', () => {
+  test('persist emitter: every header label resolves through tracker-aliases.json', () => {
     const { missing, duplicates, unknown } = resolveTsvColumns(header);
     assert.deepEqual({ missing, duplicates, unknown }, { missing: [], duplicates: [], unknown: [] });
   });
-  test('web persist emitter: the row it writes merges into the right columns', async () => {
+  test('persist emitter: the row it writes merges into the right columns', async () => {
     assert.equal(dataLine.split('\t').length, header.length, `header labels ${header.length} columns but the data row shows ${dataLine.split('\t').length}`);
     const res = await mergeOne(`${header.join('\t')}\n${dataLine}\n`);
     assert.equal(res.merge.code, 0, res.merge.stdout);
@@ -1656,13 +1468,12 @@ describe('#3516: tracker URL cell as a markdown link', () => {
     assert.equal(parseTrackerRow(lines.find(l => l.startsWith('| 2 ')), cols)?.url, HREF);
   });
 
-  // One table, two readers: asserted here against Node's extractCellUrl and in
-  // dashboard/internal/data/career_test.go against the Go port. merge-tracker
-  // keys on the Node reading and the dashboard shows the Go one. test-fixtures/
-  // is in SYSTEM_PATHS but not BOOTSTRAP_PATHS, so a bootstrap-only install has
-  // this suite without the table; the Go half fails hard if it is missing.
+  // A shared parity table of URL cells and the href each must read as, asserted
+  // against Node's extractCellUrl, which is what merge-tracker keys on.
+  // test-fixtures/ is in SYSTEM_PATHS but not BOOTSTRAP_PATHS, so a
+  // bootstrap-only install has this suite without the table.
   const PARITY_FIXTURE = join(ROOT, 'test-fixtures', 'url-cell-parity.json');
-  test('#3516: Node reader matches the shared URL-cell parity table (also asserted against the Go reader)',
+  test('#3516: Node reader matches the shared URL-cell parity table',
     existsSync(PARITY_FIXTURE) ? {} : { skip: 'test-fixtures/ not present (bootstrap-only install)' },
     () => {
       const { cases } = JSON.parse(readFileSync(PARITY_FIXTURE, 'utf-8'));

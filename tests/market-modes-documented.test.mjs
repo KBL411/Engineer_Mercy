@@ -1,5 +1,5 @@
 // tests/market-modes-documented.test.mjs — every market mode set that ships is
-// listed in AGENTS.md's market table.
+// listed in AGENTS.md's market table. Only modes/fr/ ships today.
 //
 // The table is not a nicety. AGENTS.md is loaded into every agent session, and
 // its own rule for choosing a set reads:
@@ -7,9 +7,9 @@
 //     "you detect a JD written in that language -> suggest switching"
 //
 // driven by that table. A set the table does not name is a set the agent cannot
-// route to, whatever is on disk. Eighteen complete sets shipped and six were
-// listed, so twelve full localizations — es, pt, it, nl, pl, da, ru, ua, zh,
-// zh-TW, ko, id — were invisible to the system that would have used them.
+// route to, whatever is on disk. When eighteen complete sets shipped and six
+// were listed, twelve full localizations were invisible to the system that
+// would have used them.
 //
 // A set is "shipped" when it has _shared.md, which is what makes it a market
 // set rather than a subdirectory like modes/interview/ or modes/pdf/.
@@ -59,7 +59,8 @@ test('every evaluation and apply mode the table names exists on disk', () => {
   // The mode NAMES are what a user types and what the agent looks for. A row
   // with the right directory and a wrong filename is still a dead route.
   const rows = [...AGENTS.matchAll(/\|\s*`modes\/([a-zA-Z-]+)\/`\s*\|\s*`([a-z-]+)`\s*\/\s*`([a-z-]+)`\s*\|/g)];
-  assert.ok(rows.length >= 18, `only ${rows.length} market rows parsed — the table format changed`);
+  assert.ok(rows.length >= shippedSets().length && rows.length > 0,
+    `only ${rows.length} market rows parsed — the table format changed`);
   const missing = [];
   for (const [, dir, evalMode, applyMode] of rows) {
     for (const mode of [evalMode, applyMode]) {

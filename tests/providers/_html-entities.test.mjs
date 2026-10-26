@@ -1,6 +1,6 @@
 // tests/providers/_html-entities.test.mjs — direct coverage for the shared
-// entity decoder (providers/_html-entities.mjs), extracted out of
-// deutschebahn.mjs / hecklerkoch.mjs so the numeric-entity guard can't drift
+// entity decoder (providers/_html-entities.mjs), extracted out of the
+// per-provider copies so the numeric-entity guard can't drift
 // out of sync between copies again (#1555). CodeRabbit asked for this as a
 // dedicated, provider-independent test for a "safety-critical" shared module.
 import { pass, fail, ROOT } from '../helpers.mjs';

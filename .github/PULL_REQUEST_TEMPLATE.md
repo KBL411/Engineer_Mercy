@@ -1,28 +1,22 @@
-## What does this PR do?
+## Ce que fait cette PR
 
-<!-- Describe the change in 1-3 sentences -->
+<!-- Décris le changement en 1 à 3 phrases : quoi et pourquoi. -->
 
-## Related issue
+## Issue liée
 
-<!-- Link the issue this PR addresses, if it has one. Format: Fixes #123 / Closes #123 -->
-<!-- Issue-first is asked for NEW FEATURES, new modes/commands, and architecture changes — it saves you from building something we'd have to redirect. -->
-<!-- No issue needed, send the PR straight in: bug fixes, new zero-auth scanner providers, docs, and translations. We don't want to slow these down. -->
+<!-- Si elle existe : Fixes #123 / Closes #123. -->
 
-## Type of change
+## Type de changement
 
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Documentation / translation
-- [ ] Refactor (no behavior change)
+- [ ] Correctif
+- [ ] Nouvelle fonction
+- [ ] Documentation
+- [ ] Refactor (sans changement de comportement)
 
 ## Checklist
 
-- [ ] I have read [CONTRIBUTING.md](https://github.com/career-ops-hq/career-ops/blob/main/CONTRIBUTING.md)
-- [ ] If this is a new feature or architecture change, I opened an issue first (bug fixes, providers, docs & translations are exempt — send those straight in)
-- [ ] My PR does not include personal data (CV, email, real names, scan results, or pipeline data)
-- [ ] I ran `node test-all.mjs` and all tests pass
-- [ ] My changes respect the [Data Contract](https://github.com/career-ops-hq/career-ops/blob/main/DATA_CONTRACT.md) (no modifications to user-layer files)
-- [ ] My changes align with the [project roadmap](https://github.com/career-ops-hq/career-ops/discussions/156)
-
----
-Questions? [Join the Discord](https://discord.gg/8pRpHETxa4) for faster feedback.
+- [ ] Ma PR ne contient **aucune donnée personnelle** (CV, e-mail, noms réels, résultats de scan, suivi des candidatures, clé d'API)
+- [ ] Rien ne soumet ou n'envoie une candidature à la place de l'utilisateur
+- [ ] J'ai lancé `node test-all.mjs` et les tests passent (ou je précise ci-dessous lesquels échouent déjà sans ma PR)
+- [ ] Un correctif ou une fonction s'accompagne d'un test quand c'est possible
+- [ ] Mes changements respectent le [contrat de données](../DATA_CONTRACT.md) (aucune modification des fichiers de la couche utilisateur)

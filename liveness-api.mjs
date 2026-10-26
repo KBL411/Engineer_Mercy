@@ -268,24 +268,6 @@ const ATS_PROVIDERS = [
     },
   },
   {
-    id: 'arbeitsagentur',
-    match(u) {
-      if (u.hostname !== 'www.arbeitsagentur.de') return null;
-      const m = u.pathname.match(/^\/jobsuche\/jobdetail\/([^/]+)\/?$/);
-      return m ? { refnr: m[1] } : null;
-    },
-    api: ({ refnr }) => `https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobdetails/${Buffer.from(refnr).toString('base64url')}`,
-    headers: { 'X-API-Key': 'jobboerse-jobsuche' },
-    api404Authoritative: false, // no expired real-job control; absence stays unknown
-    async interpret(res, { refnr }) {
-      let posting;
-      try { posting = await res.json(); } catch { return null; }
-      return posting?.referenznummer === refnr && posting?.stellenangebotsTitel
-        ? { result: 'active', code: 'arbeitsagentur_api_active', reason: 'Arbeitsagentur returns the matching job detail' }
-        : null;
-    },
-  },
-  {
     id: 'weworkremotely',
     match(u) {
       if (u.hostname !== 'weworkremotely.com' || !/^\/remote-jobs\/[^/]+\/?$/.test(u.pathname)) return null;

@@ -109,7 +109,6 @@ modes/_custom.md
 modes/_brief.md
 voice-dna.md
 .update-lock
-.manifesto-noted
 
 # Plugin layer — opt-in toggles + user-installed plugins + integrity lock (never auto-updated)
 config/plugins.yml
@@ -118,8 +117,8 @@ plugins.lock
 
 # Secrets (never commit — use .env.example as template)
 .env
-# Universal safety net — protects ALL checkouts/branches, incl. untracked subprojects
-# (e.g. web/ before it graduates to main). Never commit local env files or TS build caches.
+# Universal safety net — protects ALL checkouts/branches, incl. untracked subprojects.
+# Never commit local env files or TS build caches.
 **/.env.local
 **/.env*.local
 **/*.tsbuildinfo
@@ -138,15 +137,15 @@ bun.lock
 reports/*-RESERVED.md
 
 # Backup files. Two shapes exist: `{file}.bak` (normalize-statuses.mjs,
-# dedup-tracker.mjs, tracker.mjs) and `{file}.bak-{ISO timestamp}`
-# (web/src/lib/core/safe-write.ts). A plain `*.bak` glob misses the timestamped
+# dedup-tracker.mjs, tracker.mjs) and a timestamped `{file}.bak-{ISO timestamp}`
+# form. A plain `*.bak` glob misses the timestamped
 # form, which for cv.md or portals.yml leaves a file holding the same PII as the
 # original sitting untracked in the repo root. Trailing `*` covers both.
 *.bak*
 
-# Atomic-write temp files, the sibling of the backups above and from the same
-# two writers: `.{name}.{pid}.{ts}.{uuid}.tmp` (tracker-utils.mjs
-# writeFileAtomic, web/src/lib/core/safe-write.ts atomicWrite). They exist only
+# Atomic-write temp files, the sibling of the backups above:
+# `.{name}.{pid}.{ts}.{uuid}.tmp` (tracker-utils.mjs
+# writeFileAtomic). They exist only
 # between the write and the rename — but a rename that throws (Windows
 # destination-handle contention, ENOSPC, a read-only mount) leaves one behind
 # holding a byte-for-byte copy of cv.md / profile.yml / portals.yml, under a
@@ -215,10 +214,7 @@ opencode.json
 # personal server credentials (e.g. a plugin's API token) once a user adds
 # an MCP server, same risk class as .env.
 .mcp.json
-career-dashboard
-career-dashboard.exe
 package-lock.json
-!web/package-lock.json
 
 # Playwright MCP server run artifacts (ephemeral, machine-local)
 .playwright-mcp/
@@ -227,9 +223,6 @@ playwright-report/
 
 # Planning (local scratchpad)
 plan/
-
-# Web — runtime cache/history the dashboard writes locally; nothing here is tracked.
-.career-ops-web/
 
 # Test fixtures are fictional system-layer data, never user data
 # (see DATA_CONTRACT.md). Re-include them past the unanchored user-layer

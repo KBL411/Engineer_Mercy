@@ -29,27 +29,17 @@ console.log('\nLocalized tracker-addition templates (#3702)');
 const MODES = join(ROOT, 'modes');
 const ALIASES = JSON.parse(readFileSync(join(ROOT, 'tracker-aliases.json'), 'utf-8'));
 
-// The files #3702 catalogued as showing a concrete row. A tripwire, not the
-// input: discovery below runs over all of modes/, and this set only asserts it
-// never silently narrows again.
+// The files that show a concrete row. A tripwire, not the input: discovery
+// below runs over all of modes/, and this set only asserts it never silently
+// narrows again.
 //
-// `modes/ru/oferta.md` was the fifth and is deliberately NOT here any more.
-// Removing an entry from a narrowing tripwire is the exact move it exists to
-// prevent, so the reason is recorded rather than assumed: #3830 re-synced that
-// file to the canonical A–H structure, and the canonical structure — English
-// `modes/oferta.md` — dictates no TSV row at all. It lists the fields in prose
-// and defers the row shape to AGENTS.md and rule 9 of `_shared.md`. The
-// re-synced file no longer contains the string `batch/tracker-additions/`, so
-// it is not merely unrecognized, it is genuinely out of this suite's scope.
-// That is a better end state than #3702 asked for: one canonical spec instead
-// of a sixth copy that can drift. If a row template ever returns to that file,
-// discovery picks it up again and the full contract below applies to it.
-const KNOWN_TEMPLATE_FILES = [
-  'modes/ko/gonggo.md',
-  'modes/nl/vacature.md',
-  'modes/tr/is-ilani.md',
-  'modes/ua/oferta.md',
-];
+// #3702 catalogued five localized templates (ko, nl, tr, ua, ru). All five
+// markets were dropped from this fork, and no remaining mode shows a concrete
+// row: modes/fr/offre.md and the English modes list the fields in prose and
+// defer the row shape to AGENTS.md and rule 9 of `_shared.md`. The set is
+// therefore empty on purpose. If a row template returns to any mode, discovery
+// picks it up and the full contract below applies; add the file here then.
+const KNOWN_TEMPLATE_FILES = [];
 
 // Column labels a header must carry before merge-tracker can resolve a row by
 // name; mirrors TSV_REQUIRED_FIELDS in tracker-parse.mjs.

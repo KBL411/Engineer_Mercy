@@ -922,25 +922,26 @@ function readTextIfExists(path) {
 // than left permissive. Keep the accent-less spellings: reports written before this
 // fix, and the `Arquetipo` Spanish variant, must keep parsing.
 const REPORT_URL_RE = /^URL[ \t\u00a0]*:[ \t\u00a0]*(https?:\/\/\S+)/im;
-// Every archetype header label shipped by a localized evaluation mode in this
-// repo. Each form is extracted from the mode that writes it, never translated
-// here: an invented spelling adds a key no report ever carries while the real
-// one keeps being dropped. Same sourcing rule #3679 applies on the web side.
+// Every archetype header label a localized evaluation mode ever wrote. Only
+// modes/fr ships now; the other spellings stay so reports already on disk keep
+// parsing. Each form was extracted from the mode that wrote it, never
+// translated here: an invented spelling adds a key no report ever carries while
+// the real one keeps being dropped.
 //
 // Longest-first so a shorter form never shadows a longer one that starts with it
 // (Arketip / Arketipe). Backtracking would resolve it either way; the order makes
 // the intent explicit rather than incidental.
 const ARCHETYPE_LABELS = [
-  'Arquétipo',  // pt   — modes/pt/oferta.md
-  'Arquetipo',  // es   — modes/es/oferta.md
+  'Arquétipo',  // pt   — legacy reports
+  'Arquetipo',  // es   — legacy reports
   'Archétype',  // fr   — as generated when the agent writes the accent
-  'Archetype',  // en, nl, zh, zh-TW — and modes/fr/offre.md, which writes it unaccented
-  'Archetipo',  // it   — modes/it/annuncio.md
-  'Archetyp',   // de, pl — modes/de/angebot.md, modes/pl/oferta.md
-  'Arketipe',   // id   — modes/id/lowongan.md
-  'Arketype',   // da   — modes/da/oferta.md
-  'Arketip',    // tr   — modes/tr/is-ilani.md
-  'Архетип',    // ru, ua — modes/ru/oferta.md, modes/ua/oferta.md
+  'Archetype',  // en — and modes/fr/offre.md, which writes it unaccented
+  'Archetipo',  // it   — legacy reports
+  'Archetyp',   // de, pl — legacy reports
+  'Arketipe',   // id   — legacy reports
+  'Arketype',   // da   — legacy reports
+  'Arketip',    // tr   — legacy reports
+  'Архетип',    // ru, ua — legacy reports
 ];
 
 const HEADER_HSPACE = '[ \\t\\u00a0]*';

@@ -648,7 +648,7 @@
   }
 
   /* === Korean typography ===
-     modes/ko/ ships as a supported locale, but no rule matched html[lang="ko"],
+     A Korean CV can still be rendered (the modes/ko set is no longer shipped), but no rule matched html[lang="ko"],
      so a Korean CV fell back to the Latin-only stack and Hangul rendered via
      whatever the PDF engine happened to substitute. Same shape as the ja and
      zh blocks above: Latin-capable faces first for stable ATS extraction, then
@@ -676,7 +676,7 @@
   }
 
   /* === Traditional Chinese typography ===
-     modes/zh-TW/ ships as a supported locale. html[lang="zh"] does not match
+     Traditional Chinese CVs can still be rendered (the modes/zh-TW set is no longer shipped). html[lang="zh"] does not match
      lang="zh-TW", so it needs its own rule — and it must use TC faces, not the
      Simplified stack above, which substitutes the wrong glyph forms.
      var(--font-family) leads (profile override / Latin :root default), then the

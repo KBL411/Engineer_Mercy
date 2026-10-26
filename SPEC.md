@@ -41,11 +41,11 @@ Base : career-ops v1.37.0 (licence MIT), utilisé avec Claude Code uniquement, e
 Cette revue est une section du rapport hebdomadaire (3.6). Aucun code du projet d'origine n'entre sans avoir été lu : c'est aussi notre protection contre un code malveillant poussé en amont.
 
 Fait le 18/10 :
-- la section « Update Check » d'`AGENTS.md` interdit `update-system.mjs` et décrit cette revue ;
+- la revue hebdomadaire est décrite ici ; la section « Update Check » d'`AGENTS.md` n'existe plus depuis la suppression de `update-system.mjs` ;
 - `modes/update.md` renvoie vers cette revue ;
 - le push vers `upstream` est désactivé.
 
-Reste à faire lors de l'élagage (3.8) : supprimer `update-system.mjs` et les scripts `update`, `update:check`, `update:test` et `rollback` de `package.json`.
+Fait lors de l'élagage (3.8) le 26/10 : `update-system.mjs`, ses tests et les scripts `update`, `update:check`, `update:test` et `rollback` sont supprimés.
 
 ### 3.2 Périmètre ✅
 
@@ -74,6 +74,7 @@ Aucune automatisation sur LinkedIn : ses conditions d'utilisation (section 8.2) 
 | APEC, HelloWork | ⏳ | Pas d'API publique connue. Lire leurs conditions d'utilisation avant toute ligne de code |
 | Free-Work, Collective.work, Forums Talents Handicap | ❌ | Vus à travers Adzuna le 19/10 : leurs offres CDI sont presque toutes des offres d'ESN ou de cabinets |
 | Alertes e-mail (LinkedIn, Indeed, APEC) via le plugin Gmail | ⏳ plus tard | Demande une configuration OAuth Google |
+| Firecrawl (secours) | ✅ en place, désactivé par défaut | Lit une annonce qu'aucun moyen gratuit ne lit (Welcome to the Jungle répond 403 à `curl`, pages rendues en JavaScript). Actif avec `CAREER_OPS_FIRECRAWL=1` et le CLI `firecrawl` connecté. Un crédit par page, seule l'URL publique de l'offre part chez Firecrawl, LinkedIn refusé (3.3). Appelé par `batch/batch-runner.sh` en dernier recours, après le téléchargement direct et l'API de l'ATS (`lib/firecrawl-jd.mjs`). Ne sert pas à scanner : les API gratuites des sites de recrutement font mieux |
 | Hacker News « Who is hiring? » | ❌ retiré | Surtout américain, lieux illisibles |
 
 **Règle de mesure, pour Adzuna et France Travail :** avant d'écrire un connecteur, un appel à la main avec la clé. On compte les offres Paris, CDI, data, plateforme ou IA de la dernière semaine que les sources en place n'ont pas. Si l'apport est faible, on n'écrit pas le connecteur.
@@ -133,7 +134,9 @@ Aucune automatisation sur LinkedIn : ses conditions d'utilisation (section 8.2) 
 
 Règle absolue : career-ops n'écrit jamais dans `jeu-code/data/`.
 
-### 3.8 Élagage ✅
+### 3.8 Élagage ✅ (fait le 26/10/2026)
+
+Les six catégories ci-dessous sont supprimées. Le dossier passe d'environ 2 300 à 1 250 fichiers suivis. Restent volontairement : le français et l'anglais, les connecteurs de sites de recrutement utilisables en France (Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Teamtailor, Workday, Personio, Welcome to the Jungle, sites remote…), le système de plugins (désactivés par défaut) et la CI réduite à `test.yml`, `no-user-data.yml`, CodeQL et la revue des dépendances.
 
 Après l'automatisation : la valeur d'abord, le ménage ensuite. Une catégorie par phase, dans cet ordre :
 
@@ -165,7 +168,7 @@ Une phase = 5 fichiers modifiés au plus (les suppressions en masse d'une même 
 | 6 | Tri supervisé du stock de départ et mesure des tokens | Phase 5 | ⏳ |
 | 7 | Rapports quotidien et hebdomadaire (dont la revue du projet d'origine), tâches planifiées Windows | Phase 6 | ⏳ |
 | 8 | Lien DataDojo v1 | Phase 7 | ⏳ |
-| 9 et suivantes | Élagage, une catégorie par phase | Phase 7 | ⏳ |
+| 9 et suivantes | Élagage, une catégorie par phase | Phase 7 | ✅ 26/10 (fait d'un bloc avant la phase 6, à la demande de Rayan) |
 
 ## 5. Questions ouvertes
 

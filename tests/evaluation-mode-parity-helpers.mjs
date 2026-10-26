@@ -7,20 +7,13 @@ import { isNestedCheckout } from '../lib/mjs-files.mjs';
 // Shared inventory for the harness and regression suite. Remove a re-synced
 // locale from FROZEN_EVALUATION_MODES here; keep it in KNOWN_EVALUATION_MODES.
 export const FROZEN_EVALUATION_MODES = new Set([
-  // modes/<lang>/oferta.md (#3669)
-  'da/oferta.md', 'pl/oferta.md', 'pt/oferta.md', 'ua/oferta.md',
   // market-named evaluation modes (#3828)
-  'de/angebot.md', 'fr/offre.md', 'hi/naukri.md', 'id/lowongan.md', 'it/annuncio.md',
-  'ko/gonggo.md', 'nl/vacature.md', 'tr/is-ilani.md',
+  'fr/offre.md',
 ]);
 
 // A known file that stops being discovered (renamed, or its A) block dropped)
 // must fail instead of silently leaving the check. New files are also discovered.
-export const KNOWN_EVALUATION_MODES = [
-  'ar/fursah.md', 'da/oferta.md', 'de/angebot.md', 'es/oferta.md', 'fr/offre.md', 'hi/naukri.md',
-  'id/lowongan.md', 'it/annuncio.md', 'ja/kyujin.md', 'ko/gonggo.md', 'nl/vacature.md', 'pl/oferta.md',
-  'pt/oferta.md', 'ru/oferta.md', 'tr/is-ilani.md', 'ua/oferta.md', 'zh-TW/oferta.md', 'zh/oferta.md',
-];
+export const KNOWN_EVALUATION_MODES = ['fr/offre.md'];
 
 const REQUIRED_HEADINGS = ['A)', 'B)', 'C)', 'D)', 'E)', 'F)', 'G)', 'Risk Summary', 'H)'];
 const REQUIRED_LABELS = ['Date', 'URL', 'Archetype', 'Score', 'Legitimacy', 'PDF'];

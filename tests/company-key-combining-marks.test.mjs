@@ -15,7 +15,7 @@
 // differently from itself, so its rounds never join and the latency signal is
 // never computed for it.
 //
-// career-ops ships modes/hi and modes/ar as supported markets.
+// Hindi and Arabic company names are real input even though no mode ships for them.
 //
 // Run:  node --test tests/company-key-combining-marks.test.mjs
 

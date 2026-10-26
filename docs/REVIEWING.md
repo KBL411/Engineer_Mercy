@@ -1,6 +1,6 @@
 # Reviewing career-ops PRs — the one-pager
 
-For reviewers on the [contributor ladder](../GOVERNANCE.md#contributor-ladder). Merges still go through a maintainer; your review is what makes them fast and safe.
+For people reviewing pull requests. Merges still go through the maintainer; your review is what makes them fast and safe.
 
 ## The three rules
 

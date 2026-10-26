@@ -263,14 +263,7 @@ function checkSkillEntrypoints(root) {
   };
 }
 
-// The browsers `npx playwright install` downloads are dynamically linked against
-// FHS library paths, so on NixOS they fail to start (libglib-2.0.so.0 not
-// found). The flake dev shell points Playwright at nixpkgs' patched browsers
-// instead, and is the only fix that works there.
 function playwrightInstallFix() {
-  if (existsSync('/etc/NIXOS')) {
-    return 'On NixOS, run career-ops inside the flake dev shell (`nix develop`, or `direnv allow`) and re-enter it after `npm install`. Do not run `npx playwright install`: NixOS cannot run the browsers it downloads. See docs/NIXOS.md.';
-  }
   return 'Run: npx playwright install chromium';
 }
 
@@ -866,9 +859,6 @@ async function main() {
     } else {
       console.log(`Result: All checks passed${warnNote}. You're ready to go! Open your AI CLI in this folder (${CLI_NAMES}) to start.`);
     }
-    console.log('');
-    console.log('Join the community: https://discord.gg/8pRpHETxa4');
-    console.log('Read the manifesto: `npm run manifesto` — a new way of job searching is taking shape, and you are now part of it.');
     process.exit(0);
   }
 }

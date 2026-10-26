@@ -41,17 +41,6 @@ function check(label, run, ok) {
 }
 
 try {
-  // arbeitsagentur.normalizeJob — refnr is the dedup key; a bad one must yield null.
-  const { normalizeJob: aaNormalize } = await load('arbeitsagentur.mjs');
-  check(
-    'arbeitsagentur.normalizeJob',
-    () => [
-      aaNormalize({ referenznummer: `${LONE}-bad`, stellenangebotsTitel: 'Bad Refnr' }),
-      aaNormalize({ referenznummer: 'ok-123', stellenangebotsTitel: 'Good' }),
-    ],
-    ([bad, good]) => bad === null && good !== null && good.url.includes('ok-123'),
-  );
-
   // bamboohr.parseBambooHRResponse — .map() over one page.
   const { parseBambooHRResponse } = await load('bamboohr.mjs');
   check(
@@ -75,28 +64,6 @@ try {
     (jobs) => jobs.length === 1 && jobs[0].url.endsWith('/good-1'),
   );
 
-  // alibaba.parseAlibabaResponse — for…of over content.datas.
-  const { parseAlibabaResponse } = await load('alibaba.mjs');
-  check(
-    'alibaba.parseAlibabaResponse',
-    () => parseAlibabaResponse(
-      { content: { datas: [{ name: 'Bad', id: `${LONE}bad` }, { name: 'Good', id: 'g-1' }], totalCount: 2 } },
-      'Acme',
-    ).jobs,
-    (jobs) => jobs.length === 1 && jobs[0].url.includes('g-1'),
-  );
-
-  // meituan.parseMeituanResponse — for…of over data.list.
-  const { parseMeituanResponse } = await load('meituan.mjs');
-  check(
-    'meituan.parseMeituanResponse',
-    () => parseMeituanResponse(
-      { data: { list: [{ name: 'Bad', jobUnionId: `${LONE}bad` }, { name: 'Good', jobUnionId: 'g-1' }], page: { totalCount: 2 } } },
-      'Acme',
-    ).jobs,
-    (jobs) => jobs.length === 1 && jobs[0].url.includes('g-1'),
-  );
-
   // phenom.parseRefineSearch — for…of over refineSearch.data.jobs; jobId is the dedup key.
   const { parseRefineSearch } = await load('phenom.mjs');
   check(
@@ -109,107 +76,6 @@ try {
       { origin: 'https://x.phenom.com', urlPrefix: 'careers' },
     ).rows,
     (rows) => rows.length === 1 && rows[0].id === 'g-1',
-  );
-
-  // tkms.parseQuery — for…of over jobs[].data; id is the dedup key.
-  const { parseQuery } = await load('tkms.mjs');
-  check(
-    'tkms.parseQuery',
-    () => parseQuery(
-      { totalHits: 2, jobs: [
-        { data: { id: `${LONE}bad`, title: 'Bad' } },
-        { data: { id: 'g-1', title: 'Good' } },
-      ] },
-      { origin: 'https://x.tkms.com', locale: 'en' },
-    ).rows,
-    (rows) => rows.length === 1 && rows[0].id === 'g-1',
-  );
-
-  // vdab.normalizeJob — id is the dedup key; a bad one must yield null.
-  const { normalizeJob: vdabNormalize } = await load('vdab.mjs');
-  check(
-    'vdab.normalizeJob',
-    () => [
-      vdabNormalize({ id: { id: `${LONE}bad` }, vacaturefunctie: { naam: 'Bad' } }),
-      vdabNormalize({ id: { id: 'g-1' }, vacaturefunctie: { naam: 'Good' } }),
-    ],
-    ([bad, good]) => bad === null && good !== null && good.url.includes('g-1'),
-  );
-
-  // thehub.normalizeHubJob — id is the dedup key (byUrl); a bad one must yield null.
-  const { normalizeHubJob } = await load('thehub.mjs');
-  check(
-    'thehub.normalizeHubJob',
-    () => [
-      normalizeHubJob({ id: `${LONE}bad`, title: 'Bad' }),
-      normalizeHubJob({ id: 'g-1', title: 'Good' }),
-    ],
-    ([bad, good]) => bad === null && good !== null && good.url.includes('g-1'),
-  );
-
-  // manfred.normalizeManfredOffer — slug feeds the URL; a bad one must yield null.
-  const { normalizeManfredOffer } = await load('manfred.mjs');
-  check(
-    'manfred.normalizeManfredOffer',
-    () => [
-      normalizeManfredOffer({ status: 'ACTIVE', position: 'Bad', id: 5, slug: `${LONE}bad` }),
-      normalizeManfredOffer({ status: 'ACTIVE', position: 'Good', id: 6, slug: 'good-1' }),
-    ],
-    ([bad, good]) => bad === null && good !== null && good.url.includes('good-1'),
-  );
-
-  // feishu-jobs.parseFeishuJobsResponse — for…of over data.job_post_list; id feeds the detail URL.
-  const { parseFeishuJobsResponse } = await load('feishu-jobs.mjs');
-  check(
-    'feishu-jobs.parseFeishuJobsResponse',
-    () => parseFeishuJobsResponse(
-      { data: { count: 2, job_post_list: [
-        { id: `${LONE}bad`, title: 'Bad' },
-        { id: 'g-1', title: 'Good' },
-      ] } },
-      'Acme', 'https://acme.jobs.feishu.cn',
-    ).jobs,
-    (jobs) => jobs.length === 1 && jobs[0].url.includes('g-1'),
-  );
-
-  // mokahr.parseMokaHrJobs — for…of over data.jobs; id feeds the SPA #/job/ route.
-  const { parseMokaHrJobs } = await load('mokahr.mjs');
-  check(
-    'mokahr.parseMokaHrJobs',
-    () => parseMokaHrJobs(
-      { data: { jobs: [
-        { id: `${LONE}bad`, title: 'Bad' },
-        { id: 'g-1', title: 'Good' },
-      ] } },
-      'Acme', 'https://app.mokahr.com/social-recruitment/acme/123456',
-    ),
-    (jobs) => jobs.length === 1 && jobs[0].url.includes('g-1'),
-  );
-
-  // garena.parseGarenaResponse — for…of over json.jobs; id feeds the /careers/ URL.
-  const { parseGarenaResponse } = await load('garena.mjs');
-  check(
-    'garena.parseGarenaResponse',
-    () => parseGarenaResponse(
-      { jobs: [
-        { id: `${LONE}bad`, title: 'Bad' },
-        { id: 'g-1', title: 'Good' },
-      ] },
-      { name: 'Garena' },
-    ),
-    (jobs) => jobs.length === 1 && jobs[0].url.includes('g-1'),
-  );
-
-  // platsbanken.postingUrl — the ad id is the only segment of the permalink, and
-  // the helper's null (rather than a throw) is what lets one bad row drop.
-  const { postingUrl: platsbankenPostingUrl } = await load('platsbanken.mjs');
-  check(
-    'platsbanken.postingUrl',
-    () => [
-      platsbankenPostingUrl(`${LONE}bad`),
-      platsbankenPostingUrl('31581608'),
-    ],
-    ([bad, good]) => bad === null && good === 'https://arbetsformedlingen.se/platsbanken/annonser/31581608',
   );
 } catch (e) {
   fail(`per-provider surrogate tests crashed: ${e.message}`);
@@ -236,9 +102,7 @@ try {
   // import _safe-url.mjs and call safeEncodeURIComponent; dropping either is the
   // regression this list catches.
   const CONVERTED = [
-    'alibaba.mjs', 'arbeitsagentur.mjs', 'bamboohr.mjs', 'feishu-jobs.mjs', 'garena.mjs', 'jibeapply.mjs',
-    'kalibrr.mjs', 'manfred.mjs', 'meituan.mjs', 'mokahr.mjs', 'phenom.mjs', 'platsbanken.mjs',
-    'techinasia.mjs', 'thehub.mjs', 'tkms.mjs', 'vdab.mjs',
+    'bamboohr.mjs', 'jibeapply.mjs', 'phenom.mjs',
   ];
 
   // Bare `encodeURIComponent` on a url line that is reviewed as safe: the value

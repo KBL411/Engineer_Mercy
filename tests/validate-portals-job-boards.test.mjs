@@ -54,9 +54,9 @@ tracked_companies:
     careers_url: "https://jobs.lever.co/acme"
 job_boards:
   - name: "Aggregator board A"
-    provider: hackernews
+    provider: himalayas
   - name: "Aggregator board B"
-    provider: arbeitnow
+    provider: remotive
 `);
   const goodOut = run(NODE, ['validate-portals.mjs', '--file', good]);
   if (goodOut !== null && goodOut.includes('0 errors')) {
@@ -77,7 +77,7 @@ tracked_companies:
     careers_url: "https://job-boards.greenhouse.io/twinco"
 job_boards:
   - name: "Twinco"
-    provider: thehub
+    provider: weworkremotely
 `);
   const dupOut = run(NODE, ['validate-portals.mjs', '--file', dupName]);
   if (dupOut !== null

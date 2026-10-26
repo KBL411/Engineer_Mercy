@@ -25,20 +25,19 @@ Because the work is close to what I already do.
 None.
 `;
 
-// The five shipped market modes that translate the Block H title, plus the
-// three that keep it in English. Each pair is (mode file, heading title) and
-// is read from the mode file itself below, so this list cannot drift from the
-// modes without the drift test failing.
-const LOCALIZED = [
-  ['modes/es/oferta.md', 'Borradores de respuestas para la candidatura'],
-  ['modes/ru/oferta.md', 'Черновики ответов на форму'],
-  ['modes/tr/is-ilani.md', 'Başvuru Formu Taslak Yanıtları'],
-  ['modes/zh/oferta.md', '开放性问题拟答草稿'],
-  ['modes/zh-TW/oferta.md', '開放式問題擬答草稿'],
+// The parser reads the Block H letter, not the title, so a translated title
+// still parses. No shipped mode translates it any more (only modes/oferta.md
+// and the French set remain), so these titles are parser inputs, not copies of
+// what a mode emits. Latin accents, Cyrillic and CJK each exercise the letter
+// rule on a non-ASCII title.
+const TRANSLATED_TITLES = [
+  'Brouillons de réponses pour la candidature',
+  'Черновики ответов на форму',
+  '开放性问题拟答草稿',
 ];
 
-for (const [mode, title] of LOCALIZED) {
-  test(`Block H parses when its title is localized (${mode})`, () => {
+for (const title of TRANSLATED_TITLES) {
+  test(`Block H parses when its title is translated (${title})`, () => {
     const got = parseDraftAnswersBlockH(report(title));
     assert.ok(got, `returned null — indistinguishable from "this report has no Block H"`);
     assert.equal(got.freeText.length, 1);
@@ -52,23 +51,20 @@ test('the English title still parses', () => {
   assert.equal(got.freeText.length, 1);
 });
 
-test('each localized title above is the one its mode actually emits', () => {
-  // Guards against this suite testing titles the modes no longer use, which
-  // would make every case above pass against nothing.
+test('the English title is the one modes/oferta.md actually emits', () => {
+  // Guards against this suite testing a title the mode no longer uses, which
+  // would make the English case above pass against nothing.
   //
-  // A listed mode file that is missing FAILS here rather than being skipped.
-  // Skipping defeats the guard in the exact case it exists for: a mode file
-  // that moved leaves every case above asserting a hard-coded title that
-  // nothing emits any more, and the suite stays green while checking nothing.
-  assert.ok(LOCALIZED.length > 0, 'LOCALIZED is empty, so this guard verifies nothing');
-  for (const [mode, title] of LOCALIZED) {
-    const path = join(ROOT, mode);
-    assert.ok(existsSync(path),
-      `${mode} is listed in LOCALIZED but is not in the repo — move the entry to the mode's new path, do not delete it`);
-    const src = readFileSync(path, 'utf-8');
-    assert.ok(src.includes(`## H) ${title}`),
-      `${mode} no longer emits "## H) ${title}" — update this suite, do not delete the case`);
-  }
+  // A missing mode file FAILS here rather than being skipped. Skipping defeats
+  // the guard in the exact case it exists for: a mode file that moved leaves a
+  // hard-coded title that nothing emits any more, and the suite stays green.
+  const mode = 'modes/oferta.md';
+  const path = join(ROOT, mode);
+  assert.ok(existsSync(path),
+    `${mode} is not in the repo — move this check to the mode's new path, do not delete it`);
+  const src = readFileSync(path, 'utf-8');
+  assert.ok(src.includes('## H) Draft Application Answers'),
+    `${mode} no longer emits "## H) Draft Application Answers" — update this suite, do not delete the case`);
 });
 
 test('a report with no Block H still returns null', () => {

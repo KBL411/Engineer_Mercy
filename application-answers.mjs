@@ -403,9 +403,9 @@ function findDraftAnswersHeading(report) {
   // Last resort, and the only path that reads a TRANSLATED heading (#4400).
   // Neither rule above fires on one today: no mode emits the `(draft)` marker
   // (`git grep '(draft)' -- 'modes/*'` is empty), and the name rule is the
-  // English words, which five shipped modes translate — modes/es, modes/ru,
-  // modes/tr, modes/zh and modes/zh-TW. For those the block silently returned
-  // null, which is indistinguishable from a report that has no Block H.
+  // English words, which a translated mode (modes/fr) may render in its own
+  // language. For those the block silently returned null, which is
+  // indistinguishable from a report that has no Block H.
   //
   // The letter is the structural part every mode keeps: `modes/oferta.md`
   // defines `H)` as the draft-answers block and each translation renders the

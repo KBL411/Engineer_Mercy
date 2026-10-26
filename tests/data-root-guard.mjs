@@ -50,16 +50,14 @@ export const GUARDED_PATHS = [
  * each with the reason. A suite that wrote one of these for real would not be
  * reported here.
  *
- * Four are resolved from the checkout, not from the data root, so the scratch
- * root the suite pins does not move them and a snapshot of the data root does
- * not contain them. The fifth is under the data root and is left out on
- * purpose.
+ * All four are resolved from the checkout, not from the data root, so the
+ * scratch root the suite pins does not move them and a snapshot of the data
+ * root does not contain them.
  *
  * Kept as a list so that each gap is a decision. tests/data-root-guard.test.mjs
  * holds it disjoint from `GUARDED_PATHS` and requires a reason for every entry.
  */
 export const UNGUARDED_USER_PATHS = {
-  '.career-ops-web': "the dashboard's run logs and memory under the data root, written whenever it is in use: a suite run beside an open dashboard would report it every time",
   'plugins.local': 'installed plugin code, kept beside plugins/ in the checkout',
   'plugins.lock': 'the plugin trust lock, kept beside plugins/ in the checkout',
   '.claude/settings.json': "Claude Code's project config, read from the checkout by that CLI",

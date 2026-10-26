@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 // Pin the shipped domain list, then take a FRESH module instance.
 //
 // test-all.mjs imports every discovered suite into one process, and
-// tests/providers/mokahr.test.mjs imports url-key.mjs before this file runs. A
+// a provider test (tests/providers/) imports url-key.mjs before this file runs. A
 // plain `import` here would therefore reuse that evaluation, which captured
 // CAREER_OPS_AGGREGATOR_DOMAINS as it stood then and cached the domain set on
 // its first lookup. An operator with that variable set to their own list would

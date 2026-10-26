@@ -4,10 +4,10 @@
 //
 // A `job_boards` entry is a multi-employer aggregator and comes in two shapes,
 // both resolved by the provider-plugin layer (verify-portals "tier 2"):
-//   - `provider:` only, no `careers_url` — arbeitnow, hackernews, himalayas,
-//     thehub, wttj, remotive …
+//   - `provider:` only, no `careers_url` — himalayas, wttj, remotive,
+//     weworkremotely …
 //   - `careers_url` on a non-ATS host + explicit `provider:` — the Getro VC
-//     boards (`careers.<vc>.com/jobs` + `provider: getro`), arbeitsagentur.
+//     boards (`careers.<vc>.com/jobs` + `provider: getro`).
 // Neither carries an ATS slug, so tier 1 (the hardcoded Greenhouse/Ashby/Lever
 // fast probe) does not apply to a `job_boards` entry. The CLI's `main()` calls
 // verifyPortalsFile with the loaded provider registry, so each feed is probed

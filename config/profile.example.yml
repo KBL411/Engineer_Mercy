@@ -95,12 +95,6 @@ location:
   # For remote roles outside your country:
   # onsite_availability: "1 week/month in any city"
 
-# Optional. Only read by the Singapore market mode (modes/sg/): your work
-# status there. One of: citizen | pr | pass-holder | foreign. Omit → the mode
-# treats you as foreign (Employment Pass sponsorship required) and says so.
-# sg:
-#   work_status: "foreign"
-
 # Optional. If you have a documented disability, some jurisdictions run
 # affirmative/quota hiring for it (e.g. Brazil's Lei de Cotas, Lei 8.213/91 --
 # employers with 100+ staff must reserve 2-5% of roles for PcD candidates).
@@ -120,17 +114,17 @@ language:
   # This is separate from language.modes_dir: modes_dir selects market
   # vocabulary/rules, while output selects the prose language.
   output: en
-  # modes_dir: modes/de  # optional: use DACH market vocabulary while still writing in English
+  # modes_dir: modes/fr  # optional: use French market vocabulary (CDI/CDD, SYNTEC, RTT) while still writing in English
   # modes_dir can also be a LIST of declared candidate markets, for a
   # candidate genuinely running parallel campaigns in more than one market at
-  # once (e.g. applying in both DACH and China simultaneously) — not for
+  # once (e.g. applying in both France and a market with no localized directory) — not for
   # switching sequentially. The FIRST entry is primary (drives the
   # evaluation-mode file); every declared market's _shared.md is loaded into
   # context, and which one applies to a given JD is judged from the JD's own
   # market signals (hiring-entity jurisdiction, currency, benefits/legal
   # vocabulary), never from the JD's language alone. See AGENTS.md "Output
   # Language vs Market Modes" for the full contract.
-  # modes_dir: [modes/de, modes/zh]
+  # modes_dir: [modes/fr, modes]
 
 # Optional. Set enabled to false to turn follow-ups off: no follow-up dates
 # are scheduled or computed, and the web app hides the Follow-ups page.

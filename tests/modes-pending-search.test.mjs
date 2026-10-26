@@ -1,6 +1,6 @@
 // data/pipeline.md and data/scan-history.tsv only grow. A mode that tells the
 // agent to read either one whole costs 100k+ tokens on a busy search, so the
-// pipeline mode and every translated copy name the same bounded search, and
+// pipeline mode and its French copy name the same bounded search, and
 // the scan mode never reads its dedup sources whole.
 //
 // Run:  node --test tests/modes-pending-search.test.mjs
@@ -23,11 +23,10 @@ const pipelineModes = [
 ];
 
 test('the pipeline mode and its translations exist', () => {
-  assert.ok(pipelineModes.length >= 19, `found ${pipelineModes.length}`);
+  assert.deepEqual(pipelineModes.map((rel) => rel.replace(/\\/g, '/')), ['pipeline.md', 'fr/pipeline.md']);
 });
 
 for (const rel of pipelineModes) {
-  if (rel === join('sg', 'pipeline.md')) continue;
   test(`modes/${rel} finds pending items with the bounded search`, () => {
     assert.ok(readFileSync(join(MODES, rel), 'utf-8').includes(PENDING_SEARCH));
   });

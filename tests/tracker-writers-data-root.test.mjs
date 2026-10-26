@@ -158,7 +158,7 @@ test('no tracker writer resolves the tracker from its own directory', () => {
     // Every call, and any identifier: reply-watch.mjs passed `__dirname`
     // straight in and slipped past an uppercase-only, first-match pattern.
     for (const [, arg] of src.matchAll(/resolveTrackerPath\(\s*([A-Za-z_]\w*|process\.cwd\(\))\s*\)/g)) {
-      // process.cwd() is the other wrong root: hired-share.mjs defaulted to it.
+      // process.cwd() is the other wrong root: a writer must never default to it.
       if (arg === 'process.cwd()') {
         offenders.push(`${file}: resolveTrackerPath(process.cwd())`);
         continue;

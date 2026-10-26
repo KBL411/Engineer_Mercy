@@ -8,8 +8,8 @@
 // never fires. Zero-token scanning is what makes this invisible; there is no
 // LLM pass downstream that would notice the mangled title.
 //
-// #2487 fixed this shape in softgarden and radancy; these five were the
-// remainder. Numeric entities matter as much as &amp; here: beesite and tkms
+// #2487 fixed this shape in softgarden and radancy; these were the
+// remainder. Numeric entities matter as much as &amp; here: beesite and csod
 // point at DACH postings where "Syst&#232;mes" and "&#8211;" are routine.
 import { pass, fail, ROOT } from '../helpers.mjs';
 import { join } from 'path';
@@ -57,16 +57,6 @@ try {
     check('csod', reqs[0].title);
   }
 
-  // ── tkms ── (parseQuery -> { rows })
-  {
-    const { parseQuery } = await load('tkms.mjs');
-    const json = { totalHits: 1, nextPage: null, jobs: [
-      { data: { id: '964694', title: 'R&amp;D Engineer', city: 'Kiel', country: 'Germany' } },
-    ] };
-    const { rows } = parseQuery(json, { origin: 'https://jobs.tkmsgroup.com', locale: 'en' });
-    check('tkms', rows[0].title);
-  }
-
   // ── phenom ── (parseRefineSearch -> { rows }); title AND location
   {
     const { parseRefineSearch, jobLocation } = await load('phenom.mjs');
@@ -85,22 +75,6 @@ try {
     pass('an UNDECODED title bypasses a negative filter (why decoding is a filter fix)');
   } else {
     fail('negative-filter premise no longer holds — buildTitleFilter changed?');
-  }
-
-  // ── hackernews: the local map decoded &#39; but no other numeric entity ──
-  {
-    const hn = await load('hackernews.mjs');
-    const out = hn.parseHnComment(
-      '<p>Acme GmbH | Softwareentwickler &#8211; R&amp;D | M&#252;nchen | https://acme.example/jobs</p>',
-      'https://news.ycombinator.com/item?id=1',
-    );
-    if (out && out.title.includes('–') && out.title.includes('R&D')) {
-      pass('hackernews decodes numeric entities its local 7-form map missed');
-    } else {
-      fail(`hackernews title is ${JSON.stringify(out && out.title)}`);
-    }
-    if (out && out.location === 'München') pass('hackernews decodes &#252; in the location');
-    else fail(`hackernews location is ${JSON.stringify(out && out.location)}, want "München"`);
   }
 } catch (err) {
   fail(`title entity decode suite threw: ${err.message}`);

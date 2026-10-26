@@ -33,7 +33,7 @@ const CASES = [
   'https://jobs.example.com/roles/123#section',
   'https://JOBS.Example.com/roles/123/',
   'https://jobs.example.com/roles/123?fbclid=abc',
-  'https://app.mokahr.com/apply/acme/1#/job/xyz',
+  'https://careers.example.com/apply/acme/1#/job/xyz',
   'https://jobs.example.com/roles/123?v=2',
   '',
   'not a url',

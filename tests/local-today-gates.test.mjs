@@ -164,10 +164,8 @@ test('check-table-freshness --today still overrides, and reports the date it use
 // the local day did not make that comparison correct — it put the two sides on
 // different clocks, and left one file carrying rows written on both.
 //
-// The invariant is already established for the dashboard's spawned scan child
-// (web/tests/lib/pipeline-local-today.test.mjs asserts `const date =
-// localToday();` reaches appendToScanHistory there). This is the same assertion
-// for the engine-side scanners, which were never covered.
+// This asserts that `const date = localToday();` is what reaches
+// appendToScanHistory in the engine-side scanners.
 //
 // Source-level on purpose: the value is a local const inside a scanner's main(),
 // reachable only by running a real scan. What can be checked cheaply is that no

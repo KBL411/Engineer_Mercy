@@ -21,7 +21,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdtempSync, mkdirSync, realpathSync, writeFileSync, readFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, mkdirSync, realpathSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -119,18 +119,6 @@ test('the owner pins its own values', () => {
   // reach it. Everything below ranks it against whatever profile the machine
   // carries, so this line is what stops it drifting back to a4.
   assert.equal(DEFAULT_PAGE_FORMAT, 'letter');
-});
-
-test('the web agrees with the CLI about the sheet', async (t) => {
-  // web/src/lib/page-formats.mjs keeps its own copy of these two constants, and
-  // wiring it to this module means loading it at runtime, so it stays out of
-  // scope here. The two agree today and nothing says they still will, which is
-  // the drift this file exists to stop, one boundary out. It costs two lines.
-  const webOwner = join(ROOT, 'web', 'src', 'lib', 'page-formats.mjs');
-  if (!existsSync(webOwner)) return t.skip('this checkout carries no web/');
-  const web = await import(pathToFileURL(webOwner).href);
-  assert.equal(web.DEFAULT_PAGE_FORMAT, DEFAULT_PAGE_FORMAT);
-  assert.deepEqual([...web.PAGE_FORMATS].sort(), [...PAGE_FORMATS].sort());
 });
 
 // --- the four consumers -------------------------------------------------

@@ -347,7 +347,7 @@ try {
   }
 
   // Probing (verify-portals passes ctx.maxPages=1): enrichment must never
-  // spend budget a liveness check has no use for (same rule as vdab).
+  // spend budget a liveness check has no use for.
   {
     let probeDetailCalls = 0;
     await sr.fetch(

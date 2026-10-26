@@ -1,10 +1,10 @@
 // tests/keyword-match-localized-headings.test.mjs — keyword-match.mjs has to
 // find the keyword section under the heading each evaluation mode writes.
 //
-// It looked for `## Keywords extracted` only. Three of the nineteen evaluation
-// modes write that; the other sixteen translate it (`## Extrahierte Keywords`,
-// `## 추출한 키워드`, ...), so their reports read as having no keywords at all,
-// and the coverage check modes/pdf.md runs on every tailored CV exited 1 on them.
+// It looked for `## Keywords extracted` only. A translated evaluation mode
+// (today modes/fr/offre.md, `## Mots-cles extraits`) writes another title, so
+// its reports read as having no keywords at all, and the coverage check
+// modes/pdf.md runs on every tailored CV exited 1 on them.
 //
 // The mode files are the input here, not a copy of their headings: evaluation
 // modes are found by their Block F heading, the keyword heading by the 15-20
@@ -40,8 +40,8 @@ function walk(dir) {
   return listTree(dir, { match: /\.md$/ });
 }
 
-// By property, not by file name: only eight of the evaluation modes are called
-// oferta.md. Every one defines Block F, as `## F)` or `## Block F`.
+// By property, not by file name: modes/fr/offre.md is not called oferta.md.
+// Every evaluation mode defines Block F, as `## F)` or `## Block F`.
 const BLOCK_F = /^## (?:F\)|Block F\b)/m;
 
 /** `## ` headings whose first non-blank line below is the 15-20 keyword instruction. */
@@ -50,7 +50,7 @@ function keywordHeadingsIn(text) {
   return lines.filter((line, i) => {
     if (!/^##\s/.test(line)) return false;
     const below = (lines.slice(i + 1).find((next) => next.trim()) ?? '').trim();
-    // modes/zh-TW/oferta.md writes the range with an en dash.
+    // A translated mode may write the range with an en dash.
     return below.startsWith('(') && below.endsWith(')') && /15\s*[-\u2013]\s*20/.test(below);
   });
 }
@@ -60,10 +60,10 @@ const modes = walk(join(ROOT, 'modes'))
   .filter(({ text }) => BLOCK_F.test(text));
 
 // A floor, so a Block F heading that stops matching cannot turn this suite into
-// a green run over nothing. Nineteen evaluation modes ship on 2026-10-03; a new
-// market raises the count without touching this line.
+// a green run over nothing. Two evaluation modes ship (modes/oferta.md and
+// modes/fr/offre.md); a new market raises the count without touching this line.
 check(`discovery finds the evaluation modes (${modes.length})`, () => {
-  assert.ok(modes.length >= 19, `only ${modes.length} files under modes/ define Block F; 19 did when this suite was written`);
+  assert.ok(modes.length >= 2, `only ${modes.length} files under modes/ define Block F; 2 did when this suite was written`);
 });
 
 for (const { rel, text } of modes) {
@@ -96,10 +96,9 @@ check('every title in KEYWORDS_HEADINGS is read, with or without a suffix after 
   }
 });
 
-check('case and Latin or Cyrillic accents do not hide the section', () => {
-  // modes/fr/offre.md writes `Mots-cles`, which French spells with an accent,
-  // and Russian is often typed with `е` for `ё`.
-  for (const heading of ['## Mots-clés extraits', '## Извлеченные ключевые слова', '## KEYWORDS EXTRACTED']) {
+check('case and Latin accents do not hide the section', () => {
+  // modes/fr/offre.md writes `Mots-cles`, which French spells with an accent.
+  for (const heading of ['## Mots-clés extraits', '## KEYWORDS EXTRACTED']) {
     assert.deepEqual(keywordsUnder(heading), KEYWORDS, heading);
   }
 });
@@ -108,7 +107,7 @@ check('headings that are not the keyword section are not read as one', () => {
   for (const heading of [
     '## Keyword Coverage',     // what keyword-match.mjs prints, pasted right below the keyword list
     '### Keywords extracted',  // level 3
-    '## निकले गए Keywords',     // one Devanagari vowel sign away from modes/hi/naukri.md's title
+    '## Extrahierte Keywords', // German: a past report in another language is unsupported
   ]) {
     assert.deepEqual(keywordsUnder(heading), [], heading);
   }
@@ -116,15 +115,15 @@ check('headings that are not the keyword section are not read as one', () => {
 
 // ---- End to end: the call modes/pdf.md makes --------------------------------
 
-check('the CLI scores a tailored HTML CV against a report written in Spanish', () => {
+check('the CLI scores a tailored HTML CV against a report written in French', () => {
   const work = mkdtempSync(join(tmpdir(), 'keyword-match-l10n-'));
   try {
     const report = join(work, '042-acme-2026-10-03.md');
     const cv = join(work, 'cv-acme.html');
     writeFileSync(report, [
-      '# Evaluación: Acme — Staff Engineer',
+      '# Évaluation : Acme — Staff Engineer',
       '',
-      '## Palabras clave extraídas',
+      '## Mots-cles extraits',
       '- Python, gRPC',
       '- Kubernetes',
       '',

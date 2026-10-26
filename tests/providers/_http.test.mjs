@@ -188,9 +188,8 @@ if (isRefusedRedirectError(transportFailure) === false) {
 
 // redirect:'manual' — a 3xx is a non-ok response, not a followed hop and not a
 // thrown TypeError, so the error carries the status AND the Location. jobvite
-// and telegram-channel branch on exactly this shape (an empty board vs a
-// retired tenant; a private channel vs a network fault), and until now it was
-// only ever exercised through their mocks.
+// branches on exactly this shape (an empty board vs a retired tenant), and
+// until now it was only ever exercised through its mocks.
 {
   const realFetch = globalThis.fetch;
   try {
@@ -284,8 +283,8 @@ if (isRefusedRedirectError(transportFailure) === false) {
 
 // ── fetchResponseWithRetry() ────────────────────────────────────────────────
 // Same policy as fetchJsonWithRetry, over ctx.fetchResponse instead of
-// ctx.fetchJson — added for peoplesoft.mjs, which needs Set-Cookie off a
-// retried request, not just the parsed body.
+// ctx.fetchJson — for providers that need Set-Cookie off a retried request,
+// not just the parsed body.
 {
   let calls = 0;
   const okResponse = new Response('<html></html>', { status: 200 });

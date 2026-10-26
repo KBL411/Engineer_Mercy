@@ -3,8 +3,8 @@
 //
 // `modes/_shared.md` is loaded by every evaluation, and its Tools table said
 // `Write → applications.md` and `Edit → Update tracker`, eleven lines below the
-// rule that says never to edit applications.md directly. Fourteen localized
-// copies carried the same two rows. A direct Write or Edit skips the lock that
+// rule that says never to edit applications.md directly. Every localized
+// copy carried the same two rows. A direct Write or Edit skips the lock that
 // merge-tracker.mjs, set-status.mjs, the web and the dashboard share, and a
 // hand-edited status never reaches data/status-log.tsv, so funnel and velocity
 // stats go wrong with no error.
@@ -37,9 +37,10 @@ const withTable = sharedFiles.filter(f => toolRow(read(f), 'Write') !== null);
 
 ok('the Tools table is found in the English _shared.md and its localized copies', () => {
   assert.ok(withTable.includes('modes/_shared.md'), 'modes/_shared.md has no Write row');
-  // The audit counted 14 localized copies plus three already-corrected ones.
-  // A recognizer that silently stops matching would pass everything below.
-  assert.ok(withTable.length >= 18, `only ${withTable.length} Tools tables recognized: ${withTable.join(', ')}`);
+  // English plus the French locale at the time of writing. A recognizer that
+  // silently stops matching would pass everything below.
+  assert.ok(withTable.includes('modes/fr/_shared.md'), 'modes/fr/_shared.md has no Write row');
+  assert.ok(withTable.length >= 2, `only ${withTable.length} Tools tables recognized: ${withTable.join(', ')}`);
   for (const f of withTable) assert.ok(toolRow(read(f), 'Edit') !== null, `${f}: Write row found but no Edit row`);
   for (const f of withTable) assert.ok(toolRow(read(f), 'Bash') !== null, `${f}: Write row found but no Bash row`);
 });
@@ -109,7 +110,7 @@ ok('the other English steps name the writer instead of the tracker file', () => 
 // Every apply mode asks the candidate whether to re-evaluate or adapt when the
 // role on screen differs from the evaluated one ("... from [X] to [Y] ..."). The
 // step then ended "change the role title in applications.md", in English and
-// in fifteen translations, and named no writer: the one edit the modes asked for
+// in each translation, and named no writer: the one edit the modes asked for
 // that an agent could only make by hand. The `[X]`/`[Y]` prompt is the part no
 // translation changes, so it is how the step is found in every language.
 const modeFiles = [
@@ -133,9 +134,10 @@ const applyModes = modeFiles.filter(f => roleChangeStep(read(f)) !== null);
 
 ok('the role-change step is found in the English apply mode and its translations', () => {
   assert.ok(applyModes.includes('modes/apply.md'), 'modes/apply.md has no role-change step');
-  // English plus 18 locales at the time of writing. A recognizer that silently
-  // stops matching would pass everything below.
-  assert.ok(applyModes.length >= 19, `only ${applyModes.length} apply modes recognized: ${applyModes.join(', ')}`);
+  // English plus the French locale at the time of writing. A recognizer that
+  // silently stops matching would pass everything below.
+  assert.ok(applyModes.includes('modes/fr/postuler.md'), `modes/fr/postuler.md has no role-change step: ${applyModes.join(', ')}`);
+  assert.ok(applyModes.length >= 2, `only ${applyModes.length} apply modes recognized: ${applyModes.join(', ')}`);
 });
 
 for (const file of applyModes) {

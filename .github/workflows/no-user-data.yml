@@ -4,12 +4,9 @@ name: No user data in PRs
 # These live ONLY on the candidate's machine per DATA_CONTRACT.md and must never
 # enter the repo — they are personal job-search data. Sample/fixture data belongs
 # under examples/. Tracked scaffolding (.gitkeep keepers, dir READMEs) is exempt.
-# Overlaps USER_PATHS in update-system.mjs without mirroring it: that list says
-# what an update must never overwrite, this one says what must never enter the
-# repo. batch/ is where the two part company - its tracked scripts are shipped
-# by the system, so they are SYSTEM_PATHS there, while the worker output written
-# beside them is private data (#4531). Uses the API (listFiles) so it works for
-# fork PRs too.
+# batch/ is where the batch workers write their output: its tracked scripts are
+# system layer, while the worker output written beside them is private data
+# (#4531). Uses the API (listFiles) so it works for fork PRs too.
 
 on:
   pull_request:
@@ -32,13 +29,11 @@ jobs:
               owner, repo, pull_number, per_page: 100,
             });
 
-            // User-layer paths from DATA_CONTRACT.md and update-system.mjs.
-            // Every update-system.mjs USER_PATHS entry must be blocked here
-            // unless tests/no-user-data-batch-guard.test.mjs allowlists it with
-            // a reason (#4891). Omitted on purpose: voice-dna.md ships as a
-            // populated system default, so edits to it are legit; .claude/
-            // settings.json and .claude/hooks/ are project harness config that
-            // is not gitignored and may legitimately be committed.
+            // User-layer paths from DATA_CONTRACT.md. Omitted on purpose:
+            // voice-dna.md ships as a populated system default, so edits to it
+            // are legit; .claude/settings.json and .claude/hooks/ are project
+            // harness config that is not gitignored and may legitimately be
+            // committed.
             const USER_PATHS = [
               /^cv\.md$/,
               /^config\/profile\.yml$/,
@@ -48,10 +43,8 @@ jobs:
               /^modes\/_brief\.md$/,
               /^portals\.yml$/,
               /^article-digest\.md$/,
-              /^opencode\.json$/,
               /^plugins\.lock$/,
               /^plugins\.local\//,
-              /^\.career-ops-web\//,
               /^documents\//,
               /^interview-prep\//,
               /^data\//,

@@ -1,13 +1,12 @@
 // tests/provider-config-utils.test.mjs — intInRange is the only guard between a
 // hand-edited portals.yml and a provider's outbound query.
 //
-// It was the one file under providers/ that no test referenced (89 others are
-// covered), and three providers depend on it for exactly the values that decide
-// whether a scan works at all:
+// Providers depend on it for exactly the values that decide whether a scan
+// works at all:
 //
-//   vdab.mjs:98-101            days 1..1000, size 1..100, detailLimit 1..100
-//   mycareersfuture.mjs:69,72  size 1..MAX_PAGE_SIZE, maxPages 1..MAX_PAGES_CAP
-//   smartrecruiters.mjs:38     detailLimit 1..100
+//   smartrecruiters.mjs        detailLimit 1..100
+//   adp-workforcenow.mjs       detailLimit 1..100
+//   ultipro.mjs                detailLimit 1..100
 //
 // Its own docstring states the stake: a stray value "can't produce an empty
 // (e.g. size=0) or pathological query". A silent `size: 0` returns nothing and
@@ -88,9 +87,9 @@ test('Infinity is not a page count', () => {
 });
 
 test('the real caller bounds hold', () => {
-  // Sampled from the three importers rather than invented, so this reddens if a
+  // Sampled from the importers rather than invented, so this reddens if a
   // provider widens a bound without thinking about the empty/pathological ends.
-  assert.equal(intInRange(0, 30, 1, 1000), 1, 'vdab days');
-  assert.equal(intInRange(5000, 100, 1, 100), 100, 'vdab size');
+  assert.equal(intInRange(0, 25, 1, 100), 1, 'detailLimit lower bound');
+  assert.equal(intInRange(5000, 25, 1, 100), 100, 'detailLimit upper bound');
   assert.equal(intInRange('none', 25, 1, 100), 25, 'smartrecruiters detailLimit');
 });

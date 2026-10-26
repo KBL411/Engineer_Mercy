@@ -86,17 +86,3 @@ test('default entrypoints load the guard before their generic navigation or fall
   assert.match(auto, /An unavailable JD or unresolved liveness\/confirmation gate stops the pipeline/);
   assert.doesNotMatch(auto, /\*\*If any step fails\*\*, continue/);
 });
-
-test('localized gates and repeat-retry hints defer to the same guard', () => {
-  for (const path of ['modes/es/oferta.md', 'modes/ja/kyujin.md', 'modes/ru/oferta.md']) {
-    const text = read(path);
-    const guardAt = text.indexOf(guardName);
-    assert.ok(guardAt >= 0 && guardAt < text.indexOf('1. '), path);
-  }
-  for (const path of ['modes/zh/pipeline.md', 'modes/zh-TW/pipeline.md']) {
-    const rule = section(read(path), '- **LinkedIn**', '\n- **');
-    assert.ok(rule.includes(guardName), path);
-    assert.match(rule, /`\[!\]`/);
-    assert.doesNotMatch(rule, /多次失[败敗]/);
-  }
-});

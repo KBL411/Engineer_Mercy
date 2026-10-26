@@ -272,7 +272,7 @@ try {
   else fail('greenhouse.fetch() leaked raw content');
 
   // Cap: a full JD body is ~10 KB of HTML; the stripped text is sliced so scan
-  // payloads stay sane (same rationale as alibaba's 4000-char cap).
+  // payloads stay sane.
   const longBody = await greenhouse.fetch(
     { name: 'Acme', careers_url: 'https://job-boards.greenhouse.io/acme' },
     { fetchJson: async () => ({ jobs: [{ id: 9, title: 'Long', absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/9', content: '&lt;p&gt;' + 'x'.repeat(5000) + '&lt;/p&gt;' }] }) },

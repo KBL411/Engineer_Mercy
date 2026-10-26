@@ -81,7 +81,7 @@ try {
 
   // A failed feed fetch must THROW, not return []: scan.mjs catches per-target
   // throws and records a failure, while [] reads as "live but empty" — so a
-  // dead board never trips portal-health escalation (meituan/tencent contract).
+  // dead board never trips portal-health escalation (the single-feed contract).
   let threw = null;
   try {
     await ccj.fetch(

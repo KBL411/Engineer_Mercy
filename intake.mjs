@@ -374,7 +374,7 @@ function commitState(result, only = []) {
     count += 1;
   }
   mkdirSync(dirname(STATE_FILE), { recursive: true });
-  // Atomic for the same reason as hired-share's: a truncating write that is
+  // Atomic: a truncating write that is
   // interrupted leaves unparseable JSON, which is the condition the loader
   // above now refuses to silently paper over.
   writeFileAtomic(STATE_FILE, JSON.stringify(state, null, 2) + '\n');

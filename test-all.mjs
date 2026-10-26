@@ -4,11 +4,11 @@
  * test-all.mjs — Comprehensive test suite for career-ops
  *
  * Run before merging any PR or pushing changes.
- * Tests: syntax, scripts, dashboard, data contract, personal data, paths.
+ * Tests: syntax, scripts, data contract, personal data, paths.
  *
  * Usage:
  *   node test-all.mjs                        # Run all tests
- *   node test-all.mjs --quick                # Skip dashboard build (faster)
+ *   node test-all.mjs --quick                # Accepted for compatibility (no slow build step remains)
  *   node test-all.mjs --only <substring>      # Run ONLY discovered tests/**\/*.test.mjs
  *                                             # files whose path contains <substring>
  *                                             # (e.g. --only providers/themuse).
@@ -26,7 +26,7 @@
  *   about what failed.
  *
  *   LOUD WARNING: `--only` runs ONLY discovered tests/ files — every inline
- *   core section above (syntax, scripts, dashboard, data contract, personal
+ *   core section above (syntax, scripts, data contract, personal
  *   data, paths, etc.) is SKIPPED. A green `--only` run is NOT a green
  *   suite. Always run the full suite (no flags) before pushing.
  *
@@ -940,7 +940,6 @@ try {
     'data',
     'reports',
     '.update-lock',
-    '.career-ops-web',
     '.playwright-mcp',
     'cdp-diff.patch',
     'cdp-diff-focused.patch',
@@ -2222,46 +2221,6 @@ try {
   fail(`archive-posting egress guard tests crashed: ${e.message}`);
 }
 
-// ── 4. DASHBOARD BUILD ──────────────────────────────────────────
-
-if (!QUICK) {
-  console.log('\n4. Dashboard build');
-  let hasGo = false;
-  try {
-    execSync('go version', { stdio: 'ignore' });
-    hasGo = true;
-  } catch {}
-  if (!hasGo) {
-    warn('Dashboard build skipped — go compiler not in env');
-  } else {
-    const isWindows = process.platform === 'win32';
-    const dashboardBuildTmp = mkdtempSync(join(tmpdir(), 'career-dashboard-build-'));
-    const outPath = join(dashboardBuildTmp, isWindows ? 'career-dashboard-test.exe' : 'career-dashboard-test');
-    const goEnv = { ...process.env };
-    if (isWindows && !goEnv.GOCACHE) {
-      goEnv.GOCACHE = join(tmpdir(), 'career-ops-go-build-cache');
-    }
-    if (goEnv.GOCACHE) {
-      try { mkdirSync(goEnv.GOCACHE, { recursive: true }); } catch (e) {}
-    }
-    const goBuild = run('go', ['build', '-o', outPath, '.'], {
-      cwd: join(ROOT, 'dashboard'),
-      env: goEnv,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 60000,
-    });
-    if (goBuild !== null) {
-      pass('Dashboard compiles');
-      try { rmSync(outPath, { force: true }); } catch (e) {}
-    } else {
-      fail('Dashboard build failed');
-    }
-    try { rmSync(dashboardBuildTmp, { recursive: true, force: true }); } catch (e) {}
-  }
-} else {
-  console.log('\n4. Dashboard build (skipped --quick)');
-}
-
 // ── 5. DATA CONTRACT ────────────────────────────────────────────
 
 console.log('\n5. Data contract validation');
@@ -2321,43 +2280,6 @@ for (const f of systemFiles) {
     pass('canonical untrusted-external-content directive is present and referenced by every ingesting mode');
   } else {
     fail(`Untrusted-content directive coverage gap:\n${(untrusted.stderr || untrusted.stdout || '').trim()}`);
-  }
-}
-
-// The Dockerfile pins playwright twice — the FROM base image tag (bundled
-// Chromium) and the --save-exact npm install — so the npm package matches
-// the browser the container ships. Nothing enforced either pin against
-// package.json's own playwright version, so this keeps all three in sync
-// going forward instead of relying on whoever next reads the Dockerfile.
-{
-  const pkgPlaywright = JSON.parse(readFile('package.json')).dependencies?.playwright;
-  const dockerfile = readFile('Dockerfile');
-  const dockerfileLine2 = dockerfile.split(/\r?\n/, 3)[1] ?? '';
-  const fromPinMatch = dockerfile.match(/^FROM mcr\.microsoft\.com\/playwright:v([\d.]+)-/m);
-  const runPinMatch = dockerfile.match(/--save-exact playwright@([\d.]+)/);
-  const commentPinMatch = dockerfileLine2.match(/matches playwright@([\d.]+) in package\.json/);
-  if (!pkgPlaywright) {
-    fail('package.json missing dependencies.playwright — cannot check Dockerfile pins against it');
-  } else {
-    if (!fromPinMatch) {
-      fail('Dockerfile missing the expected "FROM mcr.microsoft.com/playwright:vX-<distro>" base image line');
-    } else if (fromPinMatch[1] !== pkgPlaywright) {
-      fail(`Dockerfile's FROM base image is playwright@${fromPinMatch[1]} but package.json depends on playwright@${pkgPlaywright} — bump the base image tag`);
-    } else {
-      pass(`Dockerfile's FROM base image (${fromPinMatch[1]}) matches package.json`);
-    }
-    if (!runPinMatch) {
-      fail('Dockerfile missing the expected "--save-exact playwright@X" RUN line');
-    } else if (runPinMatch[1] !== pkgPlaywright) {
-      fail(`Dockerfile pins playwright@${runPinMatch[1]} but package.json depends on playwright@${pkgPlaywright} — bump the Dockerfile's --save-exact pin`);
-    } else {
-      pass(`Dockerfile's playwright pin (${runPinMatch[1]}) matches package.json`);
-    }
-    if (commentPinMatch && commentPinMatch[1] !== pkgPlaywright) {
-      fail(`Dockerfile's line-2 comment claims playwright@${commentPinMatch[1]} but package.json depends on playwright@${pkgPlaywright} — update the comment`);
-    } else if (commentPinMatch) {
-      pass('Dockerfile\'s line-2 comment version matches package.json');
-    }
   }
 }
 
@@ -2446,41 +2368,20 @@ const allowedFiles = [
   // README (legitimately credits Santiago)
   'README.md',
   // Standard project files
-  'LICENSE', 'CITATION.cff', 'CONTRIBUTING.md', 'CHANGELOG.md', 'TRADEMARK.md',
-  'package.json', '.github/FUNDING.yml', 'CLAUDE.md', 'AGENTS.md', 'go.mod', 'test-all.mjs',
+  'LICENSE', 'CONTRIBUTING.md', 'TRADEMARK.md',
+  'package.json', '.github/FUNDING.yml', 'CLAUDE.md', 'AGENTS.md', 'test-all.mjs',
   '.github/plugin/plugin.json',
   // Community / governance files (added in v1.3.0, all legitimately reference the maintainer)
-  'CODE_OF_CONDUCT.md', 'GOVERNANCE.md', 'SECURITY.md', 'SUPPORT.md',
-  // Manifesto: the author signs it publicly; the ledger carries signers' names by design
-  'MANIFESTO.md', 'SIGNATURES.md', '.github/PULL_REQUEST_TEMPLATE/sign-manifesto.md',
+  'CODE_OF_CONDUCT.md', 'SECURITY.md', 'SUPPORT.md',
   '.github/SECURITY.md',
-  // Dashboard credit string
-  'dashboard/internal/ui/screens/pipeline.go',
-  'dashboard/internal/ui/screens/progress.go',
 ];
 
-// Paths added for #4131, checked by EXACT match rather than folded into
-// allowedFiles above. allowedFiles.some(a => file.includes(a)) is a
-// substring test, which every pre-existing entry already relies on (a
-// nested path containing e.g. "README.md" is exempted too) — widening that
-// same list with plain root-relative basenames like 'funding.json' or
-// 'HIRED.md' would also silently exempt an unrelated tracked file that
-// merely shares a basename, such as a future fixtures/funding.json or
-// snapshots/tests/hired-wall.test.mjs (luochen211, #4144 review). These are
-// the ones this PR actually intends to allow, so they get the tighter
-// check instead of loosening the shared one.
+// Paths checked by EXACT match rather than folded into allowedFiles above.
+// allowedFiles.some(a => file.includes(a)) is a substring test, so widening it
+// with plain root-relative basenames would also silently exempt an unrelated
+// tracked file that merely shares a basename.
 const exactAllowedFiles = new Set([
-  // GitHub Sponsors funding target (#4131) — same maintainer-credit shape as
-  // the .github/plugin one above.
-  'funding.json',
-  // Hired Wall: celebrates a hire with a link back to the project, and the
-  // scripts/tests that build and cover that feature necessarily carry the
-  // same URL (#4131).
-  'HIRED.md', 'hired-wall-build.mjs', 'tests/hired-wall.test.mjs', 'tests/project-identity.test.mjs',
-  // Dashboard credit string (#4131) — same substring-vs-exact reasoning as
-  // the entries above; the pre-existing pipeline.go/progress.go entries stay
-  // in the broad allowedFiles list above since they predate this PR.
-  'dashboard/internal/ui/screens/stats.go',
+  'tests/project-identity.test.mjs',
 ]);
 
 // Build pathspec for git grep — only scan tracked files matching these
@@ -2533,7 +2434,6 @@ for (const pattern of leakPatterns) {
       if (!file) continue;
       if (allowedFiles.some(a => file.includes(a))) continue;
       if (exactAllowedFiles.has(file)) continue;
-      if (file.includes('dashboard/go.mod')) continue;
       warn(`Possible personal data in ${file}: "${pattern}"`);
       leakFound = true;
     }
@@ -2876,8 +2776,8 @@ const marketModeDocs = [
 ];
 
 const outputRequestSwitchesMarketMode = (text) => text.split('\n').some((line) =>
-  /asks? for (German|French|Arabic|Japanese|Turkish) output/i.test(line) &&
-  /(?:switch(?:es|ing)?|use|read from)[^\n]*(?:language\.modes_dir|modes\/(?:de|fr|ar|ja|tr))/i.test(line)
+  /asks? for French output/i.test(line) &&
+  /(?:switch(?:es|ing)?|use|read from)[^\n]*(?:language\.modes_dir|modes\/fr)/i.test(line)
 );
 
 const validOutputLanguageGuidance = 'If the user asks for French output, set language.output to fr.';
@@ -4504,34 +4404,6 @@ if (
   fail('_shared.md missing canonical company-type compensation reliability framework');
 }
 
-const zhShared = readFile('modes/zh/_shared.md');
-const zhOferta = readFile('modes/zh/oferta.md');
-if (
-  zhShared.includes('## 公司类型与薪资可信度') &&
-  zhShared.includes('成长期创业公司 / 已融资创业公司') &&
-  zhShared.includes('早期初创企业 / 未盈利创业公司') &&
-  zhShared.includes('开源社区 / 教育社区') &&
-  zhShared.includes('实际合同主体 / 用工主体') &&
-  zhShared.includes('薪资可信度默认使用保守的正式等级：`低`') &&
-  zhShared.includes('薪资分析压缩为两行：公司类型和薪资可信度') &&
-  zhShared.includes('浮动 / 条件性现金组成') &&
-  zhOferta.includes('公司类型分类（必填）') &&
-  zhOferta.includes('薪资可信度（必填）') &&
-  zhOferta.includes('没有任何公开薪资数字，也没有“综合薪资”“底薪+提成”“含绩效”“含全勤”“最高可达”等模糊补偿表述') &&
-  zhOferta.includes('JD 未提供薪资 / 补偿信息；跳过薪资组成拆分、详细市场数据表和 HR 核验问题') &&
-  zhOferta.includes('出现“综合薪资”“底薪+提成”“含绩效”“含全勤”“最高可达”“上不封顶”等模糊补偿表述时，进入完整薪资可信度路径') &&
-  zhOferta.includes('公开薪资区间') &&
-  zhOferta.includes('可能的合同固定 base') &&
-  zhOferta.includes('浮动 / 条件性现金组成') &&
-  zhOferta.includes('非现金福利') &&
-  zhOferta.includes('当 JD 明确写出薪资数字，或出现模糊补偿表述时，必须给出 3-6 个 HR 核验问题') &&
-  zhOferta.includes('不要把招聘广告薪资当作真实到手')
-) {
-  pass('Chinese modes include company-type compensation reliability checks');
-} else {
-  fail('Chinese modes missing company-type compensation reliability checks');
-}
-
 // ── Localized evaluation-mode structural parity (#3669, #3828) ──
 // Localized evaluation modes were frozen at a pre-Block-G shape: no Block G,
 // no Risk Summary, and `## G)` meaning the draft-answers block that is `## H)`
@@ -5806,24 +5678,6 @@ try {
   } else {
     fail(`tracker writers bypass shared transaction scope: ${unsafeWriters.join(', ')}`);
   }
-
-  // The dashboard must use the same canonical writer as the CLI. Keep this
-  // boundary check beside the root-writer contract so a future UI refactor
-  // cannot silently reintroduce a direct tracker mutation that skips the
-  // shared lock, lifecycle ledger, or follow-up transaction.
-  const dashboardWriter = readFile('dashboard/internal/data/status_writer.go');
-  const runWriterStart = dashboardWriter.indexOf('func runStatusWriter(');
-  const runWriterBody = runWriterStart === -1 ? '' : dashboardWriter.slice(runWriterStart);
-  const delegatesToCanonicalWriter = runWriterBody.includes('set-status.mjs')
-    && runWriterBody.includes('exec.CommandContext')
-    && runWriterBody.includes('"--report-link"')
-    && !/writeFile(?:Atomic|Sync)\s*\(/.test(runWriterBody);
-  if (delegatesToCanonicalWriter) {
-    pass('dashboard status writer delegates tracker mutations to set-status.mjs transaction scope');
-  } else {
-    fail('dashboard status writer bypasses the shared set-status transaction scope');
-  }
-
 } catch (e) {
   fail(`tracker writer lock contract tests crashed: ${e.message}`);
 }
@@ -6743,7 +6597,7 @@ console.log('\n11. AGENTS.md integrity');
 
 const agents = readFile('AGENTS.md');
 const requiredSections = [
-  'Data Contract', 'Update Check', 'Ethical Use',
+  'Data Contract', 'Ethical Use',
   'Offer Verification', 'Canonical States', 'TSV Format',
   'First Run', 'Onboarding',
 ];
@@ -6789,7 +6643,7 @@ if (
 const criticalRoutingContracts = [
   ['paste-a-JD auto-pipeline', /Pastes JD or URL\s*\|\s*auto-pipeline/],
   ['PDF mode', /generate CV\/PDF\s*\|\s*`pdf`/i],
-  ['language modes_dir override', /language\.modes_dir:\s*modes\/(?:\{lang\}|de)/],
+  ['language modes_dir override', /language\.modes_dir:\s*modes\/(?:\{lang\}|fr)/],
   ['doctor --json onboarding', /node doctor\.mjs --json/],
 ];
 for (const [name, marker] of criticalRoutingContracts) {
@@ -7569,7 +7423,6 @@ try {
   if (
     locationHintFromUrl('https://jobs.ashbyhq.com/snowflake/4fe8d816') === '' &&
     locationHintFromUrl('https://boards.greenhouse.io/acme/jobs/12345') === '' &&
-    locationHintFromUrl('https://app.mokahr.com/social-recruitment/acme/123#/job/4fe8d816') === '' &&
     locationHintFromUrl('https://acme.jobs.personio.com/job/12345') === '' &&
     locationHintFromUrl('not a url') === '' &&
     locationHintFromUrl('') === '' &&
@@ -11653,52 +11506,6 @@ try {
   fail(`non-Latin via guard tests crashed: ${e.message}`);
 }
 
-// ── GO STATUS LITERALS MUST BE states.yml ALIASES (#2704) ─────────
-// The Go dashboard's NormalizeStatus grew its own, larger alias table: it knew
-// every Turkish spelling while states.yml did not, so ONE tracker row
-// normalized three different ways — the TUI read `Mülakat` as interview, the
-// core left it as `mülakat` (matching no ACTIONABLE/ADVANCED set, so the row
-// vanished from the funnel), and the web rejected it on writeback. We ship
-// modes/tr/, so this was live for Turkish users.
-//
-// Guard the direction that actually drifts: every status literal Go matches on
-// must be resolvable through states.yml. Go may still hold MORE matching logic
-// (it uses substring Contains for some), but it must not know a spelling the
-// source of truth has never heard of.
-console.log('\n🧪 Testing Go status literals against states.yml (#2704)...');
-try {
-  const { loadCanonicalStates } = await import(pathToFileURL(join(ROOT, 'tracker-utils.mjs')).href);
-  const states = loadCanonicalStates(join(ROOT, 'templates', 'states.yml'));
-  const known = new Set();
-  for (const st of states) {
-    known.add(st.id.toLowerCase());
-    if (st.label) known.add(st.label.toLowerCase());
-    for (const a of st.aliases) known.add(String(a).toLowerCase());
-  }
-
-  const goPath = join(ROOT, 'dashboard', 'internal', 'data', 'career.go');
-  if (!existsSync(goPath)) {
-    pass('dashboard/internal/data/career.go absent — Go status guard skipped');
-  } else {
-    const go = readFileSync(goPath, 'utf-8');
-    const fnStart = go.indexOf('func NormalizeStatus');
-    const body = fnStart === -1 ? '' : go.slice(fnStart, go.indexOf('\nfunc ', fnStart + 1));
-    // Only the literals used for status matching (== or Contains), not any
-    // other string in the function.
-    const literals = [...body.matchAll(/(?:s == |Contains\(s, )"([^"]+)"/g)].map((m) => m[1].toLowerCase());
-    const unknown = [...new Set(literals)].filter((l) => !known.has(l));
-    if (literals.length === 0) {
-      fail('could not extract any status literals from Go NormalizeStatus — the guard is not actually checking anything (#2704)');
-    } else if (unknown.length === 0) {
-      pass(`every Go status literal (${new Set(literals).size}) resolves through states.yml (#2704)`);
-    } else {
-      fail(`Go NormalizeStatus knows spellings states.yml does not — add them to templates/states.yml: ${unknown.join(', ')}`);
-    }
-  }
-} catch (e) {
-  fail(`Go status literal guard crashed: ${e.message}`);
-}
-
 // ── TURKISH DOTTED-CAPITAL CASING (#2704 review) ──────────────────
 // JS lowercases `İ` (U+0130) to `i` + COMBINING DOT ABOVE (U+0307) and the mark
 // survives, so `TEKLİF` became `tekli\u0307f` and matched no alias. Uppercase
@@ -15507,8 +15314,7 @@ try {
 // Check ... Support ID: ... Client IP: ..."), neither tells the caller
 // anything useful. The status code and its standard reason phrase carry the
 // signal instead; the raw body is still attached as err.body for callers
-// that parse it (providers/glints.mjs does, for its own error detail
-// extraction).
+// that parse it (e.g. a provider extracting its own error detail).
 
 console.log('\n54. _http.mjs — error message is status + reason phrase only');
 
@@ -15541,7 +15347,7 @@ try {
     if (err?.status === 429) pass('_http.mjs sets err.status from the response');
     else fail(`err.status = ${JSON.stringify(err?.status)}, expected 429`);
     if (err?.body?.includes('Support ID')) {
-      pass('_http.mjs still attaches the raw body as err.body for callers that need it (e.g. providers/glints.mjs)');
+      pass('_http.mjs still attaches the raw body as err.body for callers that need it (for callers that parse it)');
     } else {
       fail(`err.body missing or altered: ${JSON.stringify(err?.body)}`);
     }
@@ -15570,45 +15376,41 @@ try {
   fail(`_http.mjs error message tests crashed: ${e.message}`);
 }
 
-// ── 55. CORE↔WEB CONTRACT FREEZE ────────────────────────────────
-// The first-party web (web/) READS these exact core formats. This section
-// freezes each surface's canonical shape: a PR that changes a surface must
-// ALSO edit these assertions, which makes the change loud in the diff and
-// forces the web-coordination step (prefer ADDITIVE — append new columns/
-// statuses/blocks at the end; renaming, removing or reordering is BREAKING
-// and needs the web updated in lockstep).
-console.log('\n55. Core↔web contract freeze');
+// ── 55. CORE CONTRACT FREEZE ────────────────────────────────────
+// Downstream readers (scripts, modes, batch prompt) READ these exact core
+// formats. This section freezes each surface's canonical shape: a PR that
+// changes a surface must ALSO edit these assertions, which makes the change
+// loud in the diff (prefer ADDITIVE — append new columns/statuses/blocks at
+// the end; renaming, removing or reordering is BREAKING).
+console.log('\n55. Core contract freeze');
 try {
-  // 55.1 tracker header (tracker.mjs HEADER → web readApplications)
+  // 55.1 tracker header (tracker.mjs HEADER)
   const trackerSrc = readFileSync(join(ROOT, 'tracker.mjs'), 'utf-8');
   const CANONICAL_TRACKER_HEADER = '| # | Date | Company | Role | Score | Status | PDF | Report | Notes |';
   if (trackerSrc.includes(CANONICAL_TRACKER_HEADER)) {
     pass('tracker.mjs writes the canonical 9-col applications.md header');
   } else {
-    fail('tracker.mjs no longer writes the canonical 9-col header — BREAKING for the web reader; coordinate web/ in lockstep');
+    fail('tracker.mjs no longer writes the canonical 9-col header — BREAKING for every tracker reader');
   }
 
   // 55.1b tracker URL CELL form (#3516). The header label stays `URL`; what
   // changed is the cell, which merge-tracker now writes as `[label](href)`.
   //
   // This belongs in the freeze section for the reason the section exists: the
-  // cell is read by three surfaces outside merge-tracker — the shared Node row
-  // parser, the Go dashboard (tier 0 of its JobURL chain since #3452), and,
-  // were the web ever to start reading it, the web. A reader that has not
-  // learned the link form does not fail loudly; `normalizeUrl('[l](u)')` is '',
-  // and '' means "no URL", so the row silently loses its exact-match dedup
-  // tier. Freezing the writer AND both readers here makes any future change to
-  // the form edit this assertion.
+  // cell is read by surfaces outside merge-tracker — the shared Node row
+  // parser and history-ats-seeds. A reader that has not learned the link form
+  // does not fail loudly; `normalizeUrl('[l](u)')` is '', and '' means "no
+  // URL", so the row silently loses its exact-match dedup tier. Freezing the
+  // writer AND the readers here makes any future change to the form edit this
+  // assertion.
   const mergeSrc = readFileSync(join(ROOT, 'merge-tracker.mjs'), 'utf-8');
   const parseSrc = readFileSync(join(ROOT, 'tracker-parse.mjs'), 'utf-8');
-  const goCareerSrc = readFileSync(join(ROOT, 'dashboard', 'internal', 'data', 'career.go'), 'utf-8');
   const historySeedsSrc = readFileSync(join(ROOT, 'history-ats-seeds.mjs'), 'utf-8');
   const urlCellReaders = [
     ["tracker-parse.mjs exports the shared extractor", /export function extractCellUrl\(/.test(parseSrc)],
     ["merge-tracker.mjs writes the cell through formatUrlCell", /put\('url', formatUrlCell\(/.test(mergeSrc)],
     ["merge-tracker.mjs reads the href before keying", /url: COLMAP\.url != null \? extractCellUrl\(/.test(mergeSrc)],
     ["tracker-parse.mjs returns the href on parsed rows", /url: extractCellUrl\(at\('url'\)\)/.test(parseSrc)],
-    ["the Go dashboard extracts the href", /func extractCellURL\(/.test(goCareerSrc) && /JobURL:\s+extractCellURL\(at\("url"\)\)/.test(goCareerSrc)],
     // history-ats-seeds reads the cell directly rather than through
     // parseTrackerRow, so it is listed on its own.
     ["history-ats-seeds.mjs extracts the href", /extractCellUrl\(cells\[columns\.url\]\)/.test(historySeedsSrc)],
@@ -15636,170 +15438,39 @@ try {
     fail(`tracker URL cell contract broken — ${brokenReaders.join('; ')}. A reader that misses the link form reads the row as having NO url and silently drops it to fuzzy dedup (#3516)`);
   }
 
-  // 55.1c the web reads the tracker URL column, so it has to return the same
-  // href extractCellUrl returns. A reader that keeps the `[label](href)` text
-  // treats the row as having no URL anywhere `new URL()` is applied to the
-  // cell. The TSV `url` field stays a raw URL. This check is the tracker cell.
-  if (existsSync(join(ROOT, 'web', 'src', 'lib', 'tracker-table.mjs'))) {
-    const { extractCellUrl } = await import(pathToFileURL(join(ROOT, 'tracker-parse.mjs')).href);
-    const { parseApplications } = await import(pathToFileURL(join(ROOT, 'web', 'src', 'lib', 'tracker-table.mjs')).href);
-    const href = 'https://jobs.example.com/Engineer_(Remote)';
-    const cells = [`[workday](${href})`, href, '—'];
-    const lines = cells.map((cell, i) =>
-      `| ${i + 1} | 2026-01-01 | Acme | Engineer | 4.0/5 | Applied | ❌ | — | n | ${cell} |`);
-    const md = [
-      '| # | Date | Company | Role | Score | Status | PDF | Report | Notes | URL |',
-      '|---|------|---------|------|-------|--------|-----|--------|-------|-----|',
-      ...lines,
-    ].join('\n');
-    const got = parseApplications(md, ROOT).map((row) => row.url);
-    const expected = cells.map((cell) => extractCellUrl(cell));
-    if (got.length === expected.length && got.every((value, i) => value === expected[i])) {
-      pass('web tracker reader maps the URL column and returns the same href as extractCellUrl (#3516)');
-    } else {
-      fail(`web tracker reader URL cells ${JSON.stringify(got)} differ from extractCellUrl ${JSON.stringify(expected)}. The markdown-link form has to be extracted in lockstep (#3516)`);
-    }
-  } else {
-    console.log('   ⏭️  web/ not present (core-only install) — skipping the web URL-column check');
-  }
-
   // 55.2 scan-history.tsv header prefix (lib/scan-history-columns.mjs, the
-  // scanner's header and row order → web whats-new + first_seen map)
+  // scanner's header and row order)
   const { SCAN_HISTORY_COLUMNS: scanHistoryColumns } = await import(pathToFileURL(join(ROOT, 'lib/scan-history-columns.mjs')).href);
   const SCAN_HISTORY_PREFIX = 'url\tfirst_seen\tportal\ttitle\tcompany\tstatus\tlocation';
   if (scanHistoryColumns.slice(0, 7).join('\t') === SCAN_HISTORY_PREFIX) {
     pass('scan-history.tsv columns keep the canonical 7-col prefix (append-only beyond it)');
   } else {
-    fail('scan-history.tsv column prefix changed — BREAKING for web readers; appending new columns at the END is the additive path');
+    fail('scan-history.tsv column prefix changed — BREAKING for readers; appending new columns at the END is the additive path');
   }
 
-  // 55.3 canonical statuses (templates/states.yml → web status pills/actions)
+  // 55.3 canonical statuses (templates/states.yml)
   const statesSrc = readFileSync(join(ROOT, 'templates', 'states.yml'), 'utf-8');
   // Every id in states.yml, hardcoded ON PURPOSE — deriving this list from the
   // file it guards would make the check vacuous. It protected only 6 of the 9,
   // so `responded`, `skip` and `hired` could be deleted from states.yml and this
   // check still passed while claiming it "keeps every canonical status id".
-  // 55.3b below reads states.yml dynamically, so it inherits any such loss
-  // instead of catching it: with `hired` removed both checks went green while
+  // A check that read states.yml dynamically would inherit any such loss
+  // instead of catching it: with `hired` removed it stayed green while
   // set-status.mjs would reject the terminal-success state as invalid.
   const CANONICAL_STATE_IDS = ['evaluated', 'applied', 'responded', 'assessment', 'interview', 'offer', 'hired', 'rejected', 'discarded', 'skip'];
   const missingStates = CANONICAL_STATE_IDS.filter((s) => !new RegExp(`^  - id: ${s}$`, 'm').test(statesSrc));
   if (missingStates.length === 0) {
     pass('templates/states.yml keeps every canonical status id (new ids may be appended)');
   } else {
-    fail(`templates/states.yml lost canonical status id(s): ${missingStates.join(', ')} — BREAKING for the web status mapping`);
+    fail(`templates/states.yml lost canonical status id(s): ${missingStates.join(', ')} — BREAKING for every status reader`);
   }
 
-  // 55.3b Every web status list must carry every canonical state. states.yml is
-  // the source of truth; the web keeps FOUR hardcoded copies (title-case canonical
-  // lists + UPPERCASE tab/stage lists). `Hired` (#2050) had silently drifted out
-  // of ALL of them — a landed job was unsettable, uncounted in the funnel, and a
-  // gray "unknown" dot (#2249). Cross-check each so a future core state can't
-  // vanish from the dashboard again. The analytics funnel intentionally omits
-  // SKIP (not a funnel stage), so it's excluded there.
-  const stateLabels = [...statesSrc.matchAll(/^\s+label:\s*"?([A-Za-z]+)"?\s*$/gm)].map((m) => m[1]);
-  const webStatusLists = [
-    { file: 'web/src/lib/format.ts', re: /CANONICAL_STATES\s*=\s*\[([\s\S]*?)\]/, upper: false, exclude: [] },
-    { file: 'web/src/app/actions/registry.ts', re: /CANON_STATUS\s*=\s*\[([\s\S]*?)\]/, upper: false, exclude: [] },
-    { file: 'web/src/app/actions/registry.ts', re: /TAB_VALUES\s*=\s*\[([\s\S]*?)\]/, upper: true, exclude: [] },
-    { file: 'web/src/components/pipeline-view.tsx', re: /TABS\s*=\s*\[([\s\S]*?)\]/, upper: true, exclude: [] },
-    // Analytics now derives its funnel from canonStatus in analytics-metrics;
-    // it no longer owns a hardcoded status-list copy to keep in sync.
-    // The states ACL used to be checked here too. It moved to its own block
-    // below, because it now has TWO valid shapes and this table only knows one.
-  ];
-  if (stateLabels.length > 0) {
-    const drift = [];
-    for (const { file, re, upper, exclude } of webStatusLists) {
-      const p = join(ROOT, file);
-      if (!existsSync(p)) continue;
-      const block = readFileSync(p, 'utf-8').match(re)?.[1] ?? '';
-      const present = new Set([...block.matchAll(/"([A-Za-z]+)"/g)].map((m) => m[1]));
-      const want = (upper ? stateLabels.map((l) => l.toUpperCase()) : stateLabels).filter((l) => !exclude.includes(l));
-      const missing = want.filter((l) => !present.has(l));
-      if (missing.length) drift.push(`${file} (${missing.join(', ')})`);
-    }
-    if (drift.length === 0) {
-      pass('every web status list covers all canonical states from states.yml (#2249)');
-    } else {
-      fail(`web status list(s) missing canonical state(s) — dashboard can't set/count them (#2249): ${drift.join(' | ')}`);
-    }
-
-    // 55.3b+ the degraded-path FALLBACK in the states ACL (career-ops-ui's
-    // find, #2282). It promised to mirror states.yml, drifted to 8 states
-    // while the live path had 9, and later to 31 missing aliases (#2705).
-    //
-    // TWO shapes are correct and this asserts both, because the earlier
-    // version asserted only the first and therefore turned a genuine
-    // improvement into a red build: either (a) the literal table is present
-    // and complete, or (b) there is NO table because the fallback derives
-    // from CANONICAL_STATES, which the check above already freezes against
-    // states.yml. Deriving from something already frozen beats guarding a
-    // copy — the copy you delete cannot drift.
-    //
-    // The shape that must never pass is a literal table that is INCOMPLETE.
-    // That is the only one that fails silently: a state missing from the
-    // fallback reads exactly like a state the product does not have.
-    const aclPath = join(ROOT, 'web', 'src', 'lib', 'core', 'states.ts');
-    if (existsSync(aclPath)) {
-      const aclSrc = readFileSync(aclPath, 'utf-8');
-      const literal = aclSrc.match(/const FALLBACK[^=]*=\s*\[([\s\S]*?)\n\];/)?.[1];
-      if (literal !== undefined) {
-        const present = new Set([...literal.matchAll(/"([A-Za-z]+)"/g)].map((m) => m[1]));
-        const missing = stateLabels.filter((l) => !present.has(l));
-        if (missing.length) {
-          fail(`states ACL FALLBACK is missing canonical state(s) it claims to mirror (#2282): ${missing.join(', ')}`);
-        } else {
-          pass('states ACL FALLBACK carries every canonical state (#2282)');
-        }
-        // Assert the ASSIGNMENT, not the appearance of the name. `/CANONICAL_STATES/`
-        // over the whole file was satisfied by the header COMMENT, i.e. by prose,
-        // and worse: the literal regex above is a brittle syntactic match (that
-        // exact name, that exact shape), so routing its miss here flipped its
-        // failure direction from red to green. A reformat or a rename would have
-        // passed silently with seven states unaccounted for. A future legitimate
-        // form (`= buildFrom(CANONICAL_STATES)`) fails this on purpose: widening
-        // the guard should be a decision, not a silence. (career-ops-ui's find.)
-      } else if (/const FALLBACK[^=]*=\s*CANONICAL_STATES\b/.test(aclSrc)) {
-        pass('states ACL fallback derives from the frozen CANONICAL_STATES instead of copying states.yml (#2282)');
-      } else {
-        fail('states ACL has neither a complete FALLBACK table nor a derivation from CANONICAL_STATES — the degraded path can now drift unwatched (#2282)');
-      }
-    }
-
-    // The assistant preamble also enumerates the states in PROSE (the setStatus
-    // list + the filterPipeline tab enum). Those drift the same way — the AI
-    // couldn't offer to set/filter by Hired — so check them too (#2249).
-    const assistantPath = join(ROOT, 'web', 'src', 'app', 'api', 'assistant', 'route.ts');
-    if (existsSync(assistantPath)) {
-      const src = readFileSync(assistantPath, 'utf-8');
-      const proseChecks = [
-        { name: 'setStatus canonical-states list', text: src.match(/Canonical states:\s*([^.]*)\./)?.[1] ?? '', upper: false },
-        { name: 'filterPipeline tab enum', text: src.match(/tab ∈\s*([^;]*);/)?.[1] ?? '', upper: true },
-      ];
-      const proseDrift = [];
-      for (const { name, text, upper } of proseChecks) {
-        const want = upper ? stateLabels.map((l) => l.toUpperCase()) : stateLabels;
-        const missing = want.filter((l) => !new RegExp(`\\b${l}\\b`).test(text));
-        if (missing.length) proseDrift.push(`${name} (${missing.join(', ')})`);
-      }
-      if (proseDrift.length === 0) {
-        pass('assistant preamble prose enumerates every canonical state (#2249)');
-      } else {
-        fail(`assistant preamble missing canonical state(s) in prose (#2249): ${proseDrift.join(' | ')}`);
-      }
-    }
-  }
-
-  // 55.3c the cadence copy is GONE — the web now derives its baseline from the
-  // core (#2369). Two halves: the core must still EMIT the pure defaults that
-  // the web's /api/followups/cadence reads, and the web must not quietly
-  // reintroduce a local table (a fallback copy drifts exactly like the original
-  // did — states.ts FALLBACK, #2282).
+  // 55.3c the core must still EMIT the pure defaults (cadenceDefaults) that
+  // consumers derive their baseline from, instead of keeping a local copy (#2369).
   {
     // Assert the EMITTED payload, not just the source text: a regex over the
     // source proves the literal is present, not that the contract the web
-    // parses is intact. analyzeFromContent() is the same code path --json
+    // reads is intact. analyzeFromContent() is the same code path --json
     // prints, driven from strings so it needs no tracker on disk.
     const { analyzeFromContent, DEFAULT_CADENCE } = await import(pathToFileURL(join(ROOT, 'followup-cadence.mjs')).href);
     const emitted = analyzeFromContent(
@@ -15815,20 +15486,9 @@ try {
       && cadKeys.every((k) => Number.isInteger(defaults[k]) && defaults[k] >= 0)
       && Object.keys(defaults).length === cadKeys.length;
     if (schemaOk) {
-      pass('followup-cadence --json emits a complete integer cadenceDefaults for the web to derive from (#2369)');
+      pass('followup-cadence --json emits a complete integer cadenceDefaults for consumers to derive from (#2369)');
     } else {
-      fail(`cadenceDefaults payload broken — the web cadence form loses its baseline (#2369): ${JSON.stringify(defaults)}`);
-    }
-    // Every key the web maps must exist under the core's un-suffixed spelling.
-    const webKeys = ['applied_first_days', 'applied_subsequent_days', 'applied_max_followups', 'responded_initial_days', 'responded_subsequent_days', 'interview_thankyou_days'];
-    const mapped = webKeys.every((k) => {
-      const coreKey = k === 'applied_max_followups' ? k : k.replace(/_days$/, '');
-      return Number.isInteger(defaults?.[coreKey]);
-    });
-    if (mapped) {
-      pass('every web PROFILE_CADENCE_KEY maps onto a core cadenceDefaults key (#2369)');
-    } else {
-      fail('the web _days key mapping no longer lines up with the core cadenceDefaults keys (#2369)');
+      fail(`cadenceDefaults payload broken — consumers lose their baseline (#2369): ${JSON.stringify(defaults)}`);
     }
     // The defaults are a CONSTANT, so an empty tracker must not withhold them.
     // That is the first-run state (onboarding creates a header-only tracker),
@@ -15850,7 +15510,7 @@ try {
     if (emptyOk) {
       pass('followup-cadence emits cadenceDefaults even when the tracker is empty (#4005)');
     } else {
-      fail(`an empty tracker withholds cadenceDefaults, so a first-run web cadence form renders blank (#4005): ${JSON.stringify(emptyEmitted)}`);
+      fail(`an empty tracker withholds cadenceDefaults, so a first-run cadence form renders blank (#4005): ${JSON.stringify(emptyEmitted)}`);
     }
     // The error must SURVIVE alongside the defaults: stats.mjs short-circuits on
     // result.error before it reads entries, so dropping it while adding the
@@ -15860,49 +15520,16 @@ try {
     } else {
       fail(`the empty-tracker error was lost, so callers that branch on result.error now fall through (#4005): ${JSON.stringify(emptyEmitted)}`);
     }
-    const webFollowups = join(ROOT, 'web', 'src', 'lib', 'followups.ts');
-    if (existsSync(webFollowups)) {
-      const webSrc = readFileSync(webFollowups, 'utf-8');
-      if (!/export const CADENCE_DEFAULTS/.test(webSrc)) {
-        pass('web/src/lib/followups.ts keeps no hand-copied cadence table (#2369)');
-      } else {
-        fail('CADENCE_DEFAULTS was reintroduced in web/src/lib/followups.ts — derive from the core instead (#2369)');
-      }
-    }
   }
 
-  // 55.3d the web onboarding banner's prereq list must match doctor.mjs.
-  // doctorState() in web/src/lib/career-ops.ts hand-copies USER_LAYER_PREREQS
-  // as a deliberate fast-path (server components can't execFile doctor per
-  // render) — if the core gains a fifth prereq, the banner silently stops
-  // asking for it and the user believes they're configured. Same mechanism as
-  // #2282, different symptom (career-ops-ui's census, 31-jul).
-  {
-    const corePrereqBlock = readFileSync(join(ROOT, 'doctor.mjs'), 'utf-8')
-      .match(/const USER_LAYER_PREREQS = \[([\s\S]*?)\n\];/)?.[1] ?? '';
-    const corePrereqs = [...corePrereqBlock.matchAll(/path:\s*'([^']+)'/g)].map((m) => m[1]);
-    const webDoctorPath = join(ROOT, 'web', 'src', 'lib', 'career-ops.ts');
-    if (corePrereqs.length > 0 && existsSync(webDoctorPath)) {
-      const webPrereqBlock = readFileSync(webDoctorPath, 'utf-8')
-        .match(/const prereqs[^=]*=\s*\[([\s\S]*?)\n\s*\];/)?.[1] ?? '';
-      const webPrereqs = new Set([...webPrereqBlock.matchAll(/\[\s*"([^"]+)"/g)].map((m) => m[1]));
-      const missingPrereqs = corePrereqs.filter((p) => !webPrereqs.has(p));
-      if (missingPrereqs.length === 0 && webPrereqs.size === corePrereqs.length) {
-        pass('web doctorState prereqs match doctor.mjs USER_LAYER_PREREQS (#2369)');
-      } else {
-        fail(`web onboarding prereqs drifted from doctor.mjs (#2369): missing=[${missingPrereqs.join(', ')}] webCount=${webPrereqs.size} coreCount=${corePrereqs.length}`);
-      }
-    }
-  }
-
-  // 55.4 report format blocks (modes/oferta.md → web report parser)
+  // 55.4 report format blocks (modes/oferta.md)
   const ofertaSrc = readFileSync(join(ROOT, 'modes', 'oferta.md'), 'utf-8');
   const REPORT_BLOCKS = ['Block A', 'Block B', 'Block C', 'Block D', 'Block E', 'Block F', 'Block G'];
   const missingBlocks = REPORT_BLOCKS.filter((b) => !ofertaSrc.includes(`## ${b} `));
   if (missingBlocks.length === 0) {
     pass('modes/oferta.md keeps the A-G report block structure (new blocks may be appended)');
   } else {
-    fail(`modes/oferta.md lost report block(s): ${missingBlocks.join(', ')} — BREAKING for the web report view`);
+    fail(`modes/oferta.md lost report block(s): ${missingBlocks.join(', ')} — BREAKING for report readers`);
   }
 
   // 55.4b Block B's table columns are CONTRACT (#2330). Block B was the last
@@ -16016,390 +15643,29 @@ try {
     );
   }
 
-  // 55.5 cross-check: the web parser still speaks the same column names
-  const webParserPath = join(ROOT, 'web', 'src', 'lib', 'career-ops.ts');
-  if (existsSync(webParserPath)) {
-    const webSrc = readFileSync(webParserPath, 'utf-8');
-    const ESSENTIAL_COLS = ['Company', 'Role', 'Score', 'Status'];
-    const missingCols = ESSENTIAL_COLS.filter((c) => !webSrc.toLowerCase().includes(c.toLowerCase()));
-    if (missingCols.length === 0) {
-      pass('web/src/lib/career-ops.ts still references the essential tracker columns');
-    } else {
-      fail(`web parser no longer references column(s): ${missingCols.join(', ')} — core and web drifted`);
-    }
-  } else {
-    warn('web/src/lib/career-ops.ts not found — web layer moved? update contract freeze section');
-  }
-
-  // 55.6 pdf mode must never hand the agent write access (#2185).
-  // The web's "pdf" agent tailors content and nothing else: it emits the CV
-  // through a <<cv-html>> envelope and the BACKEND writes every file. A write
-  // grant here would be unscoped, so a prompt injection in a posting or report
-  // (both enter that agent's context) could redirect it at cv.md.
+  // 55.7 The company/role matching key (#2666).
   //
-  // Asserted on VALUES — the built argv and the built prompt. FIVE source-text
-  // versions of this guard were defeated by rewriting route.ts around them (see
-  // web/src/lib/claude-invocation.mjs's header). The one structural rule left is
-  // that route.ts may not spell a tool flag itself, which is what stops an inline
-  // argv from hiding beside a legitimate claudeCliArgs() call.
-  //
-  // In the REQUIRED suite on purpose: web-ci.yml is informative-only, so asserting
-  // this only there would gate nothing. Importing is safe — these are
-  // dependency-free ESM modules and the root suite runs on Node >= 22.13.
-  const webLib = join(ROOT, 'web', 'src', 'lib');
-  const runRoutePath = join(ROOT, 'web', 'src', 'app', 'api', 'run', 'route.ts');
-  if (!existsSync(webLib)) {
-    // Expected for a data-only install: web/ is optional.
-    warn('web/ not present in this checkout — skipping the pdf write-scope freeze (#2185)');
-  } else {
-    // web/ IS here, so a missing file means a move, not an absence — fail rather
-    // than skip, because a skip is how this freeze would silently stop guarding.
-    const required = {
-      'claude-invocation.mjs': join(webLib, 'claude-invocation.mjs'),
-      'worker-capabilities.mjs': join(webLib, 'worker-capabilities.mjs'),
-      'cv-envelope.mjs': join(webLib, 'cv-envelope.mjs'),
-      'report-envelope.mjs': join(webLib, 'report-envelope.mjs'),
-      'report-persist.mjs': join(webLib, 'report-persist.mjs'),
-      'run-prompts.mjs': join(webLib, 'run-prompts.mjs'),
-      'api/run/route.ts': runRoutePath,
-    };
-    const missing = Object.entries(required).filter(([, f]) => !existsSync(f)).map(([name]) => name);
-    if (missing.length > 0) {
-      fail(`web/ exists but ${missing.join(', ')} is missing — the #2185 write-scope freeze cannot verify (was it moved?)`);
-    } else {
-      let invocation;
-      let capabilities;
-      let prompts;
-      try {
-        invocation = await import(pathToFileURL(required['claude-invocation.mjs']).href);
-        // KNOWN_KINDS moved to worker-capabilities.mjs, which owns the policy both
-        // CLIs read: the set of run kinds is a fact about the route's workers, not
-        // about Claude (#2507).
-        capabilities = await import(pathToFileURL(required['worker-capabilities.mjs']).href);
-        prompts = await import(pathToFileURL(required['run-prompts.mjs']).href);
-        // Imported for their side effect of resolving: run-prompts pulls
-        // cv-envelope and report-envelope; report-persist is the evaluate
-        // backend writer. Naming them keeps the failure message specific.
-        await import(pathToFileURL(required['cv-envelope.mjs']).href);
-        await import(pathToFileURL(required['report-envelope.mjs']).href);
-        await import(pathToFileURL(required['report-persist.mjs']).href);
-      } catch (err) {
-        fail(`web pdf write-scope modules could not be imported (${err.message}) — the #2185 freeze cannot verify`);
-      }
-      // Gate the web unit suites from the REQUIRED check too. web-ci.yml is
-      // informative-only, so without this a contributor strengthening those files
-      // adds nothing to CI. This deliberately overlaps the value assertions below:
-      // those give a named, greppable #2185 signal and still hold if the web suite
-      // is ever trimmed, which is the failure this section exists to catch.
-      // Discovered, not hand-listed: a list silently stops gating whatever is added
-      // next, and this section previously covered 4 of the 6 files present.
-      let webUnits = [];
-      try {
-        const webLibRoot = join(ROOT, 'web', 'tests', 'lib');
-        // listTree rather than a recursive readdir: a checkout under
-        // web/tests/lib holds another tree's suites, and the parity walk below
-        // skips those the same way (#3762), so the gate must not run them. A
-        // missing root still throws, into the catch below.
-        webUnits = listTree(webLibRoot, { match: /\.test\.mjs$/ })
-          .map((abs) => relative(webLibRoot, abs))
-          .sort()
-          .map((f) => join('web', 'tests', 'lib', f));
-      } catch (err) {
-        // Fail rather than throw to the outer catch, which would skip every value
-        // assertion below while reporting only "freeze section crashed".
-        fail(`web/tests/lib is unreadable (${err.message}) — the #2185 unit suites cannot be gated`);
-      }
-      // Three distinct states, so the message never misdescribes the failure: the
-      // unreadable case already called fail() above, an empty directory is its own
-      // fault, and only a non-empty list is actually run.
-      if (webUnits.length === 0) {
-        if (existsSync(join(ROOT, 'web', 'tests', 'lib'))) {
-          fail('web/tests/lib contains no *.test.mjs — the #2185 unit suites are not being gated');
-        }
-      } else if (run(NODE, ['--experimental-strip-types', '--test', ...webUnits], { timeout: 180000 }) !== null) {
-        pass('web pdf write-scope unit suites pass (#2185)');
-      } else {
-        // The signal distinguishes a timeout/kill from an assertion failure —
-        // run()'s default 30s is short for six suites in one child process.
-        const killed = lastRunFailure()?.signal;
-        // Surface the child's own output, for the same reason the per-file
-        // node:test path does (see runDiscovered): a bare "failed" is not
-        // actionable. It matters MORE here, because this is one child running
-        // every suite under web/tests/lib — so the rerun command this prints is
-        // a ~100-file line, and without the excerpt there is nothing to say
-        // which of the hundred broke. A flake that only reproduces on a slow
-        // runner is then undiagnosable by construction, which is the half of
-        // #4017 that outlived its own test.
-        fail(`web pdf write-scope unit suites failed${killed ? ` (killed: ${killed})` : ''} (run: node --experimental-strip-types --test ${webUnits.join(' ')})${formatRunFailure()}`);
-      }
-
-      // Parity: everything web/package.json would run must be something we DO run.
-      // The block above only reads web/tests/lib, while web's own script is
-      // `node --test "tests/**/*.test.mjs"` — recursive. Today those agree (39 of
-      // 39 live in lib/), and nothing anywhere asserts that they keep agreeing.
-      // The day a suite lands in web/tests/routes/, web-ci.yml still runs it (its
-      // glob is recursive), so the failure this prevents is not "nobody runs it".
-      // It is narrower and worse: the instrument we MERGE by stops looking. A
-      // co-preview lot comes back green having skipped a suite that exists, while
-      // the PR's own informative CI is the only thing still watching it. Two
-      // measurements of the same fact, diverging in silence. Discovered on both
-      // sides, so this cannot rot into a stale list of its own.
-      try {
-        const webTestsRoot = join(ROOT, 'web', 'tests');
-        if (existsSync(webTestsRoot)) {
-          const gated = new Set(webUnits.map((f) => join(ROOT, f)));
-          const ungated = listTree(webTestsRoot, { match: /\.test\.mjs$/ })
-            .filter((f) => !gated.has(f)).sort();
-          if (ungated.length === 0) {
-            pass(`every web suite is gated by the required check (${webUnits.length} discovered)`);
-          } else {
-            fail(
-              `${ungated.length} web suite(s) run in web's own CI but NOT in this required check: ` +
-              `${ungated.map((f) => f.slice(ROOT.length + 1)).join(', ')} — ` +
-              `this section only reads web/tests/lib, so anything outside it gates nothing`,
-            );
-          }
-        }
-      } catch (err) {
-        fail(`web suite parity check could not run (${err.message}) — that is not the same as "they all match"`);
-      }
-
-      if (invocation && prompts) {
-        const { claudeCliArgs, argValue, toolNames, grantsWriteCapability, WRITE_CAPABLE_TOOLS } = invocation;
-        const pdfArgs = claudeCliArgs({ kind: 'pdf', prompt: 'freeze-probe' });
-        const allowed = argValue(pdfArgs, '--allowedTools');
-        const disallowed = argValue(pdfArgs, '--disallowedTools');
-
-        if (!grantsWriteCapability({ allowed, disallowed })) {
-          pass('web pdf command line grants no write-capable tool (#2185)');
-        } else {
-          const granted = WRITE_CAPABLE_TOOLS.filter((t) => toolNames(allowed).includes(t));
-          fail(`web pdf command line grants write access via ${granted.join(', ')} — an unscoped write grant is the #2185 hole`);
-        }
-
-        // evaluate (and CLI mode names oferta / auto-pipeline) ingest a posting.
-        // Job postings are data, never instructions — Write/Bash on that kind is
-        // the same unscoped grant #2185 closed for pdf.
-        const jdKinds = invocation.UNTRUSTED_JD_KINDS ?? ['evaluate', 'oferta', 'auto-pipeline'];
-        const jdWrite = [];
-        for (const kind of jdKinds) {
-          const jdArgs = claudeCliArgs({ kind, prompt: 'freeze-probe' });
-          const jdAllowed = argValue(jdArgs, '--allowedTools');
-          const jdDenied = argValue(jdArgs, '--disallowedTools');
-          if (grantsWriteCapability({ allowed: jdAllowed, disallowed: jdDenied })) {
-            const granted = WRITE_CAPABLE_TOOLS.filter((t) => toolNames(jdAllowed).includes(t));
-            jdWrite.push(`${kind}:${granted.join(',')}`);
-          }
-          const undeniedJd = WRITE_CAPABLE_TOOLS.filter((t) => !toolNames(jdDenied).includes(t));
-          if (undeniedJd.length) jdWrite.push(`${kind}:undenied:${undeniedJd.join(',')}`);
-        }
-        if (jdWrite.length === 0) {
-          pass('web evaluate/oferta/auto-pipeline command lines grant no write-capable tool');
-        } else {
-          fail(`web untrusted-JD kinds still grant write access (${jdWrite.join('; ')}) — a posting can aim Write/Bash`);
-        }
-
-        // Denied by name, not merely omitted: --permission-mode acceptEdits exists
-        // to auto-approve edit tools, so "unmentioned" is the one status a
-        // file-writing tool must never have.
-        const undenied = WRITE_CAPABLE_TOOLS.filter((t) => !toolNames(disallowed).includes(t));
-        if (undenied.length === 0) {
-          pass('web pdf command line explicitly denies every write-capable tool (#2185)');
-        } else {
-          fail(`web pdf command line no longer denies ${undenied.join(', ')} — #2172/#2185 guardrail weakened`);
-        }
-
-        // EVERY kind, not just pdf: a write tool that is neither allowed nor denied
-        // can still be auto-approved by --permission-mode acceptEdits, and a
-        // pdf-only probe let exactly that ship for the persisting kinds.
-        const unmentioned = [];
-        for (const kind of capabilities.KNOWN_KINDS) {
-          const scope = invocation.toolScopeFor(kind);
-          const named = [...toolNames(scope.allowed), ...toolNames(scope.disallowed)];
-          for (const tool of WRITE_CAPABLE_TOOLS) {
-            if (!named.includes(tool)) unmentioned.push(`${kind}:${tool}`);
-          }
-        }
-        if (unmentioned.length === 0) {
-          pass('web tool scopes leave no write-capable tool unmentioned for any kind (#2185)');
-        } else {
-          fail(`web tool scopes leave ${unmentioned.join(', ')} neither allowed nor denied — acceptEdits may auto-approve them (#2185)`);
-        }
-
-        // The PROMPT is asserted by run-prompts.test.mjs, which this section already
-        // runs above — restating its regexes here would be two copies of one intent.
-        // What is checked here is only what that suite cannot see: that the shipped
-        // prompt is the one the route actually sends (below).
-        // The one structural rule: the route delegates its argv. If it spells any
-        // tool flag itself, an inline pdf arm could grant writes while every value
-        // check above still describes claudeCliArgs's untouched output.
-        // Strip comments with a scanner that respects string and template literals.
-        // A `.replace(/\/\/.*$/, '')` per line also fires inside strings: a URL on the
-        // same line as a tool flag deletes the flag, so a route spelling its own
-        // --allowedTools would pass unnoticed. Only `//` OUTSIDE a literal is a comment.
-        const stripJsComments = (src) => {
-          let out = '';
-          let quote = null;   // "'" | '"' | '`' when inside a literal
-          let block = false;  // inside a /* */ comment
-          let line = false;   // inside a // comment
-          for (let i = 0; i < src.length; i++) {
-            const c = src[i];
-            const next = src[i + 1];
-            if (line) { if (c === '\n') { line = false; out += c; } continue; }
-            if (block) { if (c === '*' && next === '/') { block = false; i++; } continue; }
-            if (quote) {
-              // A backslash escapes the next character, so an escaped quote does not
-              // close the literal and an escaped backslash does not escape what follows.
-              if (c === '\\') { out += c + (next ?? ''); i++; continue; }
-              if (c === quote) quote = null;
-              out += c;
-              continue;
-            }
-            if (c === '/' && next === '/') { line = true; continue; }
-            if (c === '/' && next === '*') { block = true; i++; continue; }
-            // A `/` here can also open a REGEX literal, and a quote inside one (say
-            // /["']/) would otherwise flip the scanner into string state and swallow
-            // the rest of the file. Distinguish regex from division the usual way:
-            // regex can only follow an operator or an opener, never a value.
-            if (c === '/') {
-              const prev = out.replace(/\s+$/, '').slice(-1);
-              if (prev === '' || '(,=:[!&|?{};+-*%~^<>'.includes(prev)) {
-                out += c;
-                for (i++; i < src.length; i++) {
-                  const r = src[i];
-                  out += r;
-                  if (r === '\\') { out += src[i + 1] ?? ''; i++; continue; }
-                  if (r === '[') { // a class can contain an unescaped `/`
-                    for (i++; i < src.length && src[i] !== ']'; i++) {
-                      out += src[i];
-                      if (src[i] === '\\') { out += src[i + 1] ?? ''; i++; }
-                    }
-                    out += src[i] ?? '';
-                    continue;
-                  }
-                  if (r === '/' || r === '\n') break;
-                }
-                continue;
-              }
-            }
-            if (c === '"' || c === "'" || c === '`') { quote = c; out += c; continue; }
-            out += c;
-          }
-          return out;
-        };
-        const routeCode = stripJsComments(readFileSync(runRoutePath, 'utf-8'))
-          .split('\n')
-          .filter((l) => !/^\s*import\b/.test(l))
-          .join('\n');
-        // The sandbox flags join the tool flags here (#2507). Permission is no
-        // longer Claude-only: Codex is fenced with `-c sandbox_mode=…` applied at
-        // the spawn boundary, and the same reasoning applies — a route that spells
-        // its own sandbox policy makes the value assertions above describe an argv
-        // that is not the one shipped. Comments are stripped before this runs, so
-        // the route's prose about sandboxes is exempt; only real strings count.
-        //
-        // Anchored patterns, not bare substrings: `read-only` and `workspace-write`
-        // as plain `includes()` would fire on any prose or identifier containing
-        // them, and a bare `-s` cannot be matched that way at all because
-        // `--strict-mcp-config` contains it. Each pattern below names the flag form
-        // it is actually looking for.
-        const SANDBOX_PATTERNS = [
-          [/--allowedTools/, '--allowedTools'],
-          [/--disallowedTools/, '--disallowedTools'],
-          [/--permission-mode/, '--permission-mode'],
-          [/--sandbox\b/, '--sandbox'],
-          [/\bsandbox_mode\s*=/, 'sandbox_mode='],
-          [/\bsandbox_workspace_write\./, 'sandbox_workspace_write.*'],
-          // Approval policy and web access are permission too, and are what a
-          // route reaching for its own Codex invocation spells first — #2361 did
-          // exactly that, inline, in another route.
-          [/--ask-for-approval/, '--ask-for-approval'],
-          [/--search\b/, '--search'],
-          // `-s` as a standalone argv token: quoted on its own, as an argv element
-          // would be. Does not match the `-s` inside `--strict-mcp-config`.
-          [/(['"`])-s\1/, '-s'],
-        ];
-        const spelledFlags = SANDBOX_PATTERNS.filter(([re]) => re.test(routeCode)).map(([, name]) => name);
-        const argvCallSites = (routeCode.match(/claudeCliArgs\s*\(/g) ?? []).length;
-        // `kind` must reach claudeCliArgs as a SHORTHAND property. Property order
-        // and line wrapping are free, but `{ kind: <anything> }` is refused:
-        // `claudeCliArgs({ kind: kind === "pdf" ? "evaluate" : kind, prompt })`
-        // once passed every check while pdf received the persisting scope.
-        const passesKindVerbatim = /claudeCliArgs\s*\(\s*\{(?:[^{}]*,)?\s*kind\s*[,}]/.test(routeCode);
-        if (spelledFlags.length === 0 && argvCallSites === 1 && passesKindVerbatim) {
-          pass('web run route delegates its whole argv, spelling no tool flag and remapping no kind (#2185)');
-        } else {
-          const why = spelledFlags.length > 0
-            ? `it spells ${spelledFlags.join(', ')} itself`
-            : argvCallSites !== 1
-              ? `it builds argv at ${argvCallSites} site(s), expected exactly 1`
-              : 'it does not pass `kind` through verbatim (a remapped kind hands pdf another kind\'s scope)';
-          fail(`web run route no longer delegates its argv — ${why}, so the value checks above may not describe what pdf actually ships (#2185)`);
-        }
-      }
-    }
-  }
-
-  // 55.7 The company/role matching key: core vs the web's declared mirror (#2666).
-  //
-  // The browser cannot reach the user's checkout, so web/src/lib/core/
-  // normalize-text-key.mjs is a COPY by necessity, declared as such. A conscious
-  // copy without an assertion is exactly the failure this repo has now hit five
-  // times (states.ts, CADENCE_DEFAULTS, doctor prereqs, the #2590 cache, and the
-  // three divergent company norms of #2666 itself).
-  //
-  // Compare CORE vs MIRROR, not core vs the derived path: the derived path
-  // imports the core, so it CANNOT diverge — asserting on it would guard the one
-  // thing that cannot break while ignoring the one that can. The mirror is also
-  // the path nobody exercises in normal operation (it only runs on a partial
-  // checkout), which is precisely why it needs a test rather than usage.
-  //
-  // Expected values are DERIVED from the core, never hand-written: a hand-written
-  // expectation would freeze today's answer and stop tracking the source.
+  // normalizeTextKey (tracker-parse.mjs) is the one key every surface derives
+  // from. Pair semantics fix the OUTCOME, not the implementation, and the
+  // corpus must keep its teeth: a thinned corpus would let anything that
+  // exercises it pass vacuously.
   const corpusPath = join(ROOT, 'tests', 'fixtures', 'company-key-corpus.json');
-  const mirrorPath = join(ROOT, 'web', 'src', 'lib', 'core', 'normalize-text-key.mjs');
-  if (!existsSync(join(ROOT, 'web', 'src'))) {
-    warn('web/ not present in this checkout — skipping the company-key parity freeze (#2666)');
-  } else if (!existsSync(corpusPath) || !existsSync(mirrorPath)) {
-    // web/ IS here, so a missing file is a move, not an absence. Failing rather
-    // than skipping: a skip is how this freeze would quietly stop guarding.
-    fail(`web/ exists but ${!existsSync(corpusPath) ? 'tests/fixtures/company-key-corpus.json' : 'web/src/lib/core/normalize-text-key.mjs'} is missing — the #2666 key parity cannot verify (moved?)`);
+  if (!existsSync(corpusPath)) {
+    fail('tests/fixtures/company-key-corpus.json is missing — the #2666 key checks cannot verify (moved?)');
   } else {
     try {
       const corpus = JSON.parse(readFileSync(corpusPath, 'utf-8'));
       const core = await import(pathToFileURL(join(ROOT, 'tracker-parse.mjs')).href);
-      const mirror = await import(pathToFileURL(mirrorPath).href);
-      const coreFn = core.normalizeTextKey, mirrorFn = mirror.normalizeTextKey;
-      if (typeof coreFn !== 'function' || typeof mirrorFn !== 'function') {
-        fail('normalizeTextKey is not exported by the core and/or the web mirror — the #2666 parity cannot verify');
+      const coreFn = core.normalizeTextKey;
+      if (typeof coreFn !== 'function') {
+        fail('normalizeTextKey is not exported by the core — the #2666 checks cannot verify');
       } else {
-        // undefined cannot be written in JSON but is a real input (a missing
-        // cell), and it is half of the null/undefined bug — so it is appended here.
-        const inputs = [...corpus.cases.map((c) => c.input), undefined];
-        const drift = [];
-        for (const sep of ['', ' ']) {
-          for (const input of inputs) {
-            const a = coreFn(input, sep), b = mirrorFn(input, sep);
-            if (a !== b) drift.push(`${JSON.stringify(input)} sep=${JSON.stringify(sep)}: core=${JSON.stringify(a)} mirror=${JSON.stringify(b)}`);
-          }
-        }
-        if (drift.length === 0) {
-          pass(`web company-key mirror matches the core on all ${inputs.length} corpus cases x2 separators (#2666)`);
-        } else {
-          fail(`web company-key mirror DRIFTED from the core — ${drift.length} case(s): ${drift.slice(0, 3).join(' | ')}`);
-        }
-
-        // 55.7b PAIR SEMANTICS — what parity alone cannot see.
-        // The comparison above proves core and mirror AGREE. It says nothing
-        // about whether they agree on the RIGHT answer: two identical wrong
-        // implementations pass it silently. That is not hypothetical — on
-        // 12-ago the Turkish dotted-I fix shipped as NFD → strip U+0307 → NFC,
-        // which also decomposed the PRECOMPOSED dots of ż, ė and ġ and
-        // collapsed Żubr/Zubr, Ėmė/Eme and Ġenerali/Generali. Both sides were
-        // equally wrong, so parity stayed green and the corpus (which had no
-        // dotted-letter case) could not fail either. Polish, Lithuanian and
+        // 55.7a PAIR SEMANTICS. Two identical wrong implementations would agree
+        // with each other silently; that is not hypothetical — the Turkish
+        // dotted-I fix once shipped as NFD → strip U+0307 → NFC, which also
+        // decomposed the PRECOMPOSED dots of ż, ė and ġ and collapsed
+        // Żubr/Zubr, Ėmė/Eme and Ġenerali/Generali. Polish, Lithuanian and
         // Maltese employers silently became one key with their ASCII spelling.
-        // These assertions fix the OUTCOME, not the implementation.
         const pairs = [
           // [a, b, mustMatch, why]
           ['İstanbul Tekstil', 'Istanbul Tekstil', true, 'Turkish dotted capital: the dot is an artifact of toLowerCase, not typed'],
@@ -16423,13 +15689,9 @@ try {
         } else {
           fail(`company-key pair semantics BROKEN — ${wrong.length}: ${wrong.slice(0, 3).join(' | ')}`);
         }
-        // Guard of the guard, in TWO directions, because each covers a hole the
-        // other cannot see:
-        //  (a) the RULES could regress in the core itself, and
-        //  (b) the CORPUS could be thinned until the comparison above passes
-        //      vacuously — "matches on all 0 cases" is a green that proves nothing.
-        // (b) was found by mutation: deleting Škoda and 日本電産 from the corpus
-        // left every check green, because (a) queries the core directly.
+        // Guard of the guard, in TWO directions: (a) the RULES could regress in
+        // the core itself, and (b) the CORPUS could be thinned until it proves
+        // nothing.
         const inputStrings = corpus.cases.map((c) => String(c.input));
         const mustCarry = ['Škoda', 'Koda', '日本電産', 'Nestlé'];
         const missing = mustCarry.filter((m) => !inputStrings.includes(m));
@@ -16439,57 +15701,16 @@ try {
         } else if (!rulesHold) {
           fail('the company-key rules regressed: Škoda now collides with Koda and/or CJK keys to empty — this is the #2666 data-loss bug returning');
         } else {
-          fail(`the company-key corpus lost its teeth: ${missing.length ? `missing ${missing.join(', ')}` : `only ${corpus.cases.length} cases left`} — the parity check above would pass without exercising the failure it exists for`);
+          fail(`the company-key corpus lost its teeth: ${missing.length ? `missing ${missing.join(', ')}` : `only ${corpus.cases.length} cases left`}`);
         }
       }
     } catch (err) {
-      fail(`company-key parity check could not run (${err.message}) — treat as unverified, not as passing (#2666)`);
-    }
-  }
-
-  // 55.8 Where the key comes from, per surface (#2666, structural half).
-  //
-  // Shapes are NOT interchangeable: the server can reach the user's live core
-  // (dynamic import via careerOpsRoot) and must derive from it; a "use client"
-  // component physically cannot, so it imports the shared mirror. What none of
-  // them may do is define a normalizer of its own — that is how three divergent
-  // company keys shipped in the first place.
-  //
-  // The ASCII-class check is scoped to THESE THREE FILES on purpose. A repo-wide
-  // grep for [^a-z0-9] measured 71% false positives (domain slugs, filename
-  // slugs, a regex boundary class — all legitimate), and a check that shouts at
-  // correct code gets silenced. Here the same expression would be the bug.
-  const keySurfaces = [
-    { file: join(ROOT, 'web', 'src', 'app', 'api', 'whats-new', 'route.ts'), needs: 'getNormalizeTextKey', how: 'derive from the live core' },
-    { file: join(ROOT, 'web', 'src', 'components', 'explore', 'explorer-view.tsx'), needs: 'normalize-text-key', how: 'import the shared mirror (client cannot reach the core)' },
-    { file: join(ROOT, 'web', 'src', 'app', 'actions', 'registry.ts'), needs: 'normalize-text-key', how: 'import the shared mirror' },
-  ];
-  if (existsSync(join(ROOT, 'web', 'src'))) {
-    for (const { file, needs, how } of keySurfaces) {
-      const name = file.slice(ROOT.length + 1);
-      if (!existsSync(file)) { fail(`${name} is missing — the #2666 key-source freeze cannot verify (moved?)`); continue; }
-      const src = readFileSync(file, 'utf-8');
-      if (!src.includes(needs)) {
-        fail(`${name} no longer references ${needs} — it must ${how}, never key company names on its own (#2666)`);
-      } else if (src.split('\n')
-        // Comment lines are stripped first: the honest fix for this bug ships a
-        // comment WARNING against the pattern ("never [^a-z0-9]"), and flagging
-        // that would punish the file for documenting its own trap. Measured:
-        // this exact false positive fired on explorer-view.tsx the first time
-        // this check ran. Line-level is proportionate here — the scope is three
-        // known files, and a full JS parse to catch a block comment would be
-        // more machinery than the risk deserves.
-        .filter((l) => { const t = l.trimStart(); return !t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*'); })
-        .some((l) => /\[\^a-z0-9\]/i.test(l))) {
-        fail(`${name} contains an ASCII-only character class — that is the exact key that made "Škoda" collide with "Koda" and emptied CJK names (#2666)`);
-      } else {
-        pass(`${name} takes its matching key from the right place (#2666)`);
-      }
+      fail(`company-key check could not run (${err.message}) — treat as unverified, not as passing (#2666)`);
     }
   }
 
 } catch (e) {
-  fail(`core↔web contract freeze section crashed: ${e.message}`);
+  fail(`core contract freeze section crashed: ${e.message}`);
 }
 
 // ── 55b. OFFER-PREP POSTURE FREEZE (#1634) ──────────────────────
@@ -18329,111 +17550,6 @@ try {
   fail(`formatRunFailure clipping check: ${e.message}`);
 }
 
-// ── FUNDING MANIFEST INTEGRITY (funding.json, fundingjson.org v1.1.0) ──
-// The manifest is CRAWLED by a directory that re-reads it on its own schedule,
-// so a break here degrades silently: the listing goes stale or drops, and the
-// first signal is an email that never arrives. Nothing else checks that it
-// still parses or that its required fields survived an edit.
-//
-// The dated-metric rule is the project's own, not the schema's: every count in
-// a description carries the date it was counted, because a bare "68,000 stars"
-// is stale the week after it's written and a funder reading it cannot tell.
-
-console.log('\n72. Funding manifest integrity (funding.json)');
-
-try {
-  const fundingRaw = readFile('funding.json');
-  let funding = null;
-  try {
-    funding = JSON.parse(fundingRaw);
-    pass('funding.json parses as JSON');
-  } catch (e) {
-    fail(`funding.json does not parse: ${e.message}`);
-  }
-
-  if (funding) {
-    if (funding.version === 'v1.1.0') {
-      pass('funding.json declares schema version v1.1.0');
-    } else {
-      fail(`funding.json version is ${JSON.stringify(funding.version)}, expected "v1.1.0"`);
-    }
-
-    const entity = funding.entity || {};
-    const entityMissing = ['type', 'role', 'name', 'email', 'webpageUrl']
-      .filter((k) => !entity[k]);
-    if (entityMissing.length === 0 && entity.webpageUrl?.url && entity.webpageUrl?.wellKnown) {
-      pass('funding.json entity carries every required field, webpageUrl + wellKnown included');
-    } else {
-      fail(`funding.json entity incomplete: missing ${entityMissing.join(', ') || 'webpageUrl.url/wellKnown'}`);
-    }
-
-    const projects = Array.isArray(funding.projects) ? funding.projects : [];
-    const badProject = projects.find((pr) => !pr.guid || !pr.name || !pr.description
-      || !pr.webpageUrl?.url || !pr.webpageUrl?.wellKnown || !pr.repositoryUrl?.url
-      || !Array.isArray(pr.licenses) || pr.licenses.length === 0);
-    if (projects.length > 0 && !badProject) {
-      pass(`funding.json lists ${projects.length} project(s), each with guid, urls, wellKnown and a license`);
-    } else {
-      fail(`funding.json projects invalid: ${projects.length === 0 ? 'none listed' : `${badProject.guid || '(no guid)'} incomplete`}`);
-    }
-
-    // A plan pointing at a channel guid that no longer exists is the shape an
-    // edit produces: the channel gets renamed, the plan keeps the old id, and
-    // the directory renders a funding option with nowhere to send money.
-    const channels = Array.isArray(funding.funding?.channels) ? funding.funding.channels : [];
-    const plans = Array.isArray(funding.funding?.plans) ? funding.funding.plans : [];
-    const channelIds = new Set(channels.map((c) => c.guid));
-    const orphanPlan = plans.find((pl) => (pl.channels || []).some((c) => !channelIds.has(c)));
-    if (channels.length > 0 && plans.length > 0 && !orphanPlan) {
-      pass(`funding.json has ${channels.length} channel(s) and ${plans.length} plan(s), every plan channel resolvable`);
-    } else if (!channels.length || !plans.length) {
-      fail('funding.json must declare at least one funding channel and one plan');
-    } else {
-      fail(`funding.json plan "${orphanPlan.guid}" references a channel guid that no channel declares`);
-    }
-
-    // Dated metrics: any description quoting a count must say when it was counted.
-    const METRIC_RE = /\d[\d,.]*\+?\s*(?:GitHub\s+)?(?:stars|forks|contributors|merged pull requests|pull requests|community members|installs)/i;
-    const COUNTED_RE = /counted\s+\d{1,2}\s+\w{3,}\s+\d{4}/i;
-    const descriptions = [
-      ['entity', entity.description || ''],
-      ...projects.map((pr) => [`project ${pr.guid}`, pr.description || '']),
-      // Plans are read by funders too: a six-month plan quoting "72,400+ stars"
-      // with no date went stale the same way an entity description would.
-      ...plans.map((pl) => [`plan ${pl.guid}`, pl.description || '']),
-    ];
-    const undated = descriptions.filter(([, text]) => METRIC_RE.test(text) && !COUNTED_RE.test(text));
-    if (undated.length === 0) {
-      pass('every funding.json description that quotes a count also states when it was counted');
-    } else {
-      fail(`funding.json ${undated.map(([w]) => w).join(', ')}: quotes a metric with no "counted <date>"`);
-    }
-
-    // A repository wellKnown is the proof the directory asks for: it fetches that
-    // file and looks for the manifest URL in it. The repo moved to the org on
-    // 31-Aug and the listing kept flagging it as unproven until this file existed,
-    // so the check is that the file ships AND names the manifest's own URL.
-    const repoProofs = projects.filter((pr) => pr.repositoryUrl?.wellKnown);
-    if (repoProofs.length > 0) {
-      const WELL_KNOWN = '.well-known/funding-manifest-urls';
-      const MANIFEST_URL = 'https://github.com/career-ops-hq/career-ops/raw/main/funding.json';
-      let proof = null;
-      try { proof = readFile(WELL_KNOWN); } catch { proof = null; }
-      const listed = proof ? proof.split(/\r?\n/).map((l) => l.trim()).filter(Boolean) : [];
-      const pointsHere = repoProofs.every((pr) => pr.repositoryUrl.wellKnown.endsWith(`/${WELL_KNOWN}`));
-      if (proof !== null && listed.includes(MANIFEST_URL) && pointsHere) {
-        pass(`${WELL_KNOWN} ships and lists ${MANIFEST_URL}, and repositoryUrl.wellKnown points at it`);
-      } else {
-        fail(proof === null ? `repositoryUrl.wellKnown is set but ${WELL_KNOWN} is missing`
-          : !pointsHere ? `repositoryUrl.wellKnown does not point at ${WELL_KNOWN}`
-          : `${WELL_KNOWN} does not list ${MANIFEST_URL}`);
-      }
-    }
-  }
-} catch (e) {
-  fail(`funding manifest integrity check: ${e.message}`);
-}
-
 console.log('\n74. gmail: isCleanUrl() drops page assets');
 try {
   const { isCleanUrl } = await import(pathToFileURL(join(ROOT, 'plugins', 'gmail', '_helpers.mjs')).href);
@@ -18480,26 +17596,6 @@ try {
 
 // JD-archive validator wiring + read-only boundary (#2789) moved to
 // tests/jd-archive-wiring.test.mjs (#3935) — discovered automatically below.
-
-console.log('\n76. README sponsors section is generated from .github/sponsors.json');
-try {
-  // The Sponsors section of README.md (heading, intro, per-sponsor rows,
-  // independence note, placement between the community section and the value
-  // proposition) and the per-sponsor rows of every README.<lang>.md are
-  // rendered by .github/scripts/sponsors.mjs; a hand edit on either side is
-  // drift that the next --write would silently undo, so the two are pinned
-  // together here. The script also refuses a logo that is not a file inside
-  // docs/sponsors/ (no hotlinking), a non-https sponsor URL, and a sponsor URL
-  // carrying tracking parameters.
-  const r = spawnSync(process.execPath, [join(ROOT, '.github', 'scripts', 'sponsors.mjs'), '--check'], { cwd: ROOT, encoding: 'utf8' });
-  if (r.status === 0) {
-    pass('README.md and every README.<lang>.md match .github/sponsors.json');
-  } else {
-    fail(`README sponsors drifted or invalid: ${String(r.stderr || r.stdout).trim().split('\n')[0]}`);
-  }
-} catch (e) {
-  fail(`sponsors check: ${e.message}`);
-}
 
 // ── INLINE SECTIONS: END ────────────────────────────────────────
 

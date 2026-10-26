@@ -115,8 +115,7 @@ try {
   // tier is in `skip_tiers` and never names it (it prints a "Filtered by tier: N
   // removed" count, not the title), so an academic candidate running the
   // documented example config — templates/portals.example.yml suggests
-  // `skip_tiers: [intern, entry]` and ships a HigherEdJobs board, both commented
-  // out — lost every Associate Professor posting without seeing which.
+  // `skip_tiers: [intern, entry]`, commented out — lost every Associate Professor posting without seeing which.
   check('Associate Professor', 'senior');
   check('Associate Research Professor', 'senior');
   check('Associate Dean', 'senior');

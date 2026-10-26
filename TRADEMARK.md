@@ -70,7 +70,7 @@ opt-in shared service. Running them takes infrastructure the project does
 not run itself, so the maintainer may license an operating entity to run
 one. These conditions are part of that licence, not a courtesy:
 
-- The operator is bound by the nine rights in MANIFESTO.md.
+- The operator is bound by the candidate rights this project upholds.
 - It may not charge candidates for anything, and may not paywall or
   degrade what the open core already does.
 - It is disclosed by name wherever it operates, for as long as it does.

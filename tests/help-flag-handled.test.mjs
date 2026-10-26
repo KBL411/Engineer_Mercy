@@ -202,20 +202,6 @@ const KNOWN_WITHOUT_HELP = new Set([
   'keyword-match.mjs',
   'plugins/h1b-sponsor/install-h1b-index.mjs',
   'plugins/h1b-sponsor/token.mjs',
-
-  // Not user-facing CLIs, so `--help` is not a question anyone asks them. They
-  // carry the isMainModule guard because something else invokes them — a
-  // workflow step and the web app's own job runner — and neither is reachable
-  // from a shell prompt the way every other entry here is.
-  //
-  // These two are the only additions; the list is net SHORTER than before this
-  // change, which is the direction the ratchet allows. The three root-level
-  // CLIs the same scan surfaced (cv-title-check.mjs, scan-dayforce.mjs,
-  // sync-pdf-flags.mjs) are user-facing and were FIXED in this PR rather than
-  // listed, because listing them is what turns this into a description of
-  // nothing.
-  '.github/scripts/sponsors.mjs',
-  'web/scripts/scheduled-jobs-runner.mjs',
 ]);
 
 /**

@@ -10,18 +10,16 @@
 // lib/context-budget.test.mjs sat there with the #2234 guard that every
 // modes/_shared.md heading is classified in SECTION_PRIORITY, so a
 // scoring-critical section cannot silently become compressible. That guard
-// had never run in CI. The sibling check for web/'s own discovery glob is
-// tests/web-test-layout.test.mjs; this is the core half, kept in tests/
-// rather than inline in test-all.mjs so `--only` can reach it.
+// had never run in CI. The check is kept in tests/ rather than inline in
+// test-all.mjs so `--only` can reach it.
 import { pass, fail, ROOT } from './helpers.mjs';
 import { collectMjsFiles } from '../lib/mjs-files.mjs';
 import { relative, sep } from 'path';
 
 console.log('\ncore test layout — every suite lives where a runner can find it');
 
-// The two trees a runner actually discovers: test-all.mjs's discoverTests()
-// over tests/, and web/'s own `npm test` glob over web/tests/.
-const DISCOVERED_ROOTS = ['tests/', 'web/tests/'];
+// The tree a runner actually discovers: test-all.mjs's discoverTests() over tests/.
+const DISCOVERED_ROOTS = ['tests/'];
 
 // collectMjsFiles() skips node_modules, output/, data/ and any nested checkout
 // (a linked worktree marks itself with a `.git` FILE, #3499), so a developer

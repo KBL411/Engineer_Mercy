@@ -24,7 +24,7 @@ We as members, contributors, and maintainers pledge to make participation in car
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting **hi@santifer.io**. All complaints will be reviewed and investigated.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the maintainer, [@KBL411](https://github.com/KBL411), through GitHub. All complaints will be reviewed and investigated.
 
 Maintainers have the right and responsibility to remove, edit, or reject comments, commits, code, issues, and other contributions that violate this Code of Conduct, and to temporarily or permanently ban any contributor for behaviors they deem inappropriate, threatening, or harmful.
 
@@ -36,7 +36,7 @@ Maintainers have the right and responsibility to remove, edit, or reject comment
 
 ## Scope
 
-This Code of Conduct applies within all project spaces (GitHub, Discord, social media) and when an individual is representing the project in public spaces.
+This Code of Conduct applies within all project spaces (GitHub, social media) and when an individual is representing the project in public spaces.
 
 ## Attribution
 

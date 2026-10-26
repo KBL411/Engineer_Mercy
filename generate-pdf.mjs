@@ -325,11 +325,12 @@ function foldDiacritics(text) {
 /**
  * Heading spelling -> canonical section key.
  *
- * Polish (modes/pl) and Chinese (modes/zh-TW, modes/zh) are here because without
- * these aliases the rendered non-English titles match nothing derived from the
+ * Polish and Chinese titles are here (the Polish and Chinese mode sets are no
+ * longer shipped, but a user-supplied `sections` override can still carry them)
+ * because without these aliases the rendered non-English titles match nothing derived from the
  * English cv.md: validateCvSectionOrder() finds fewer than two comparable
  * sections and silently returns, leaving the section-order guard disabled on
- * every CV rendered in those modes, and cv.sections resolves no block at all.
+ * every CV rendered in those languages, and cv.sections resolves no block at all.
  *
  * Keys are folded on construction so authored diacritics match stripped input.
  */
@@ -358,7 +359,7 @@ const SECTION_ALIASES = new Map([
   ['skills', 'skills'],
   ['technical skills', 'skills'],
   ['interests', 'interests'],
-  // Polish — the vocabulary documented in modes/pl/README.md, plus the word-order
+  // Polish — the vocabulary the removed modes/pl documented, plus the word-order
   // variants that turn up in practice (both "Kompetencje kluczowe" and
   // "Kluczowe kompetencje" are used for the same section).
   ['podsumowanie', 'summary'],
@@ -421,14 +422,13 @@ const SECTION_ALIASES = new Map([
   ['conocimientos técnicos', 'skills'],
   ['herramientas e idiomas', 'skills'],
   ['intereses', 'interests'],
-  // Chinese — the same failure the Polish block above fixes, for the two Chinese
-  // markets this repo ships modes for: Traditional (modes/zh-TW) and Simplified
-  // (modes/zh), rendered through templates/cv-template.zh-minimal.html. Both
+  // Chinese — the same failure the Polish block above fixes, for Traditional
+  // and Simplified Chinese CVs rendered through templates/cv-template.zh-minimal.html. Both
   // scripts are listed against every key because a CV written in either renders
   // through this one alias table. The vocabulary is the repo's own: the
   // `sections` payload in tests/zh-minimal-template.test.mjs (个人简介, 核心能力,
-  // 工作经历, 精选项目, 教育经历, 认证, 技术栈) and the modes' wording
-  // (e.g. "專業摘要" in modes/zh-TW/oferta.md), plus the everyday synonyms of
+  // 工作经历, 精选项目, 教育经历, 认证, 技术栈) and the wording of the removed Chinese modes
+  // (e.g. "專業摘要"), plus the everyday synonyms of
   // each — the titles have no single canonical spelling because they come from
   // a user-supplied `sections` override, not from DEFAULT_SECTION_TITLES.
   ['專業摘要', 'summary'],

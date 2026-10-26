@@ -194,7 +194,6 @@ const USER_LAYER_PROBES = [
   'article-digest.md',
   'plugins.lock',
   'plugins.local/private/index.mjs',
-  '.career-ops-web/chats/1.json',
   'documents/private.pdf',
   'interview-prep/story-bank.md',
   'data/applications.md',

@@ -1,17 +1,16 @@
-// tests/reply-hired-data-root.test.mjs — hired-share.mjs, reply-watch.mjs and
-// paste-reply.mjs resolve the tracker and their user-layer files against the
-// data root, the same way set-status.mjs and merge-tracker.mjs already do.
+// tests/reply-hired-data-root.test.mjs — reply-watch.mjs and paste-reply.mjs
+// resolve the tracker and their user-layer files against the data root, the
+// same way set-status.mjs and merge-tracker.mjs already do.
 //
-// Before this, all three missed getCareerOpsRoot():
+// Before this, both missed getCareerOpsRoot():
 //
-//   hired-share.mjs   resolveWorkspaceRoot(resolveTrackerPath(process.cwd()))
 //   reply-watch.mjs   resolveTrackerPath(__dirname), data/*.json under __dirname
 //   paste-reply.mjs   data/reply-candidates.json under __dirname
 //
 // With the user layer outside the checkout (CAREER_OPS_ROOT,
-// CAREER_OPS_DATA_DIR or a .career-ops-data marker) hired-share found no hires,
-// and reply-watch/paste-reply read and wrote a candidates file the other side of
-// the configured data root never saw.
+// CAREER_OPS_DATA_DIR or a .career-ops-data marker) reply-watch/paste-reply
+// read and wrote a candidates file the other side of the configured data root
+// never saw.
 //
 // Every case runs the script from a COPIED code root, with the cwd, the code
 // root, the data root and a decoy root all holding different trackers, so a
@@ -31,7 +30,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const SCRIPTS = ['hired-share.mjs', 'reply-watch.mjs', 'paste-reply.mjs'];
+const SCRIPTS = ['reply-watch.mjs', 'paste-reply.mjs'];
 // Runtime assets an import scan cannot see.
 const ASSETS = ['tracker-aliases.json', 'templates/states.yml'];
 
@@ -134,22 +133,6 @@ const CONFIGS = [
 ];
 
 for (const config of CONFIGS) {
-  test(`hired-share reads the data-root tracker and writes its state there — ${config.name}`, (t) => {
-    const f = fixture(t);
-    const env = config.setup(f);
-
-    const status = JSON.parse(run(f, 'hired-share.mjs', ['--status'], env).stdout);
-    assert.deepEqual(status.hires.map((h) => h.role), ['data role']);
-
-    run(f, 'hired-share.mjs', ['--report', '1', '--mark', 'later'], env);
-    const statePath = join(f.data, 'data', '.hired-share-state.json');
-    assert.ok(existsSync(statePath), 'state file must land under the data root');
-    assert.equal(JSON.parse(readFileSync(statePath, 'utf-8')).byReport['1'].status, 'later');
-    for (const other of [f.code, f.cwd, f.other]) {
-      assert.ok(!existsSync(join(other, 'data', '.hired-share-state.json')), `stray state file under ${other}`);
-    }
-  });
-
   test(`paste-reply and reply-watch share the data-root candidates file — ${config.name}`, (t) => {
     const f = fixture(t);
     const env = config.setup(f);
@@ -175,30 +158,13 @@ for (const config of CONFIGS) {
 
 test('with nothing configured, the code root is the default — not the cwd', (t) => {
   const f = fixture(t);
-  const status = JSON.parse(run(f, 'hired-share.mjs', ['--status']).stdout);
-  assert.deepEqual(status.hires.map((h) => h.role), ['code role']);
+  const email = join(f.dir, 'email.txt');
+  writeFileSync(email, 'Subject: Interview invitation\nFrom: jobs@acme.example\n\nWe would like to schedule an interview with you.\n');
 
-  run(f, 'reply-watch.mjs', [], {}, 'n\n');
+  run(f, 'paste-reply.mjs', ['--file', email]);
+  const watch = run(f, 'reply-watch.mjs', [], {}, 'n\n');
+  assert.match(watch.stdout, /Acme — code role/, 'the tracker must come from the code root');
   assert.ok(existsSync(join(f.code, 'data', 'reply-candidates.json')));
   assert.ok(!existsSync(join(f.cwd, 'data', 'reply-candidates.json')));
-});
-
-test('an explicit --root still overrides the configured data root for hired-share', (t) => {
-  const f = fixture(t);
-  const status = JSON.parse(run(f, 'hired-share.mjs', ['--status', '--root', f.other], { CAREER_OPS_ROOT: f.data }).stdout);
-  assert.deepEqual(status.hires.map((h) => h.role), ['other role']);
-});
-
-test('hired-share --mark creates data/ on a legacy-layout data root', (t) => {
-  // applications.md at the top level and no data/: the tracker still resolves,
-  // so recording the answer must not fail on the missing state directory.
-  const f = fixture(t);
-  const legacy = join(f.dir, 'legacy');
-  mkdirSync(legacy);
-  writeFileSync(join(legacy, 'applications.md'), tracker('legacy role'));
-
-  run(f, 'hired-share.mjs', ['--report', '1', '--mark', 'never'], { CAREER_OPS_ROOT: legacy });
-  const statePath = join(legacy, 'data', '.hired-share-state.json');
-  assert.ok(existsSync(statePath), 'state file must be written under the legacy root');
-  assert.equal(JSON.parse(readFileSync(statePath, 'utf-8')).byReport['1'].status, 'never');
+  assert.ok(!existsSync(join(f.data, 'data', 'reply-candidates.json')));
 });

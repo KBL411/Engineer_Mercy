@@ -1,5 +1,8 @@
-// #3704: shipped market headers must survive inserted/reordered columns on
-// both the read path and the real headed-addition/status write paths.
+// #3704: localized tracker headers must survive inserted/reordered columns on
+// both the read path and the real headed-addition/status write paths. The
+// label sets below were shipped by market modes that this fork no longer
+// carries; tracker-aliases.json still resolves them, so they stay as parser
+// input and no longer have to match a mode file.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -12,12 +15,12 @@ function check(label, run) {
   try { run(); pass(label); } catch (error) { fail(`${label}: ${error.message}`); }
 }
 
-const markets = [
-  ['de/angebot', 'Datum', 'Firma', 'Rolle'],
-  ['pl/oferta', 'Data', 'Firma', 'Rola'],
-  ['pt/oferta', 'Data', 'Empresa', 'Vaga'],
-  ['da/oferta', 'Dato', 'Virksomhed', 'Rolle'],
-  ['id/lowongan', 'Tanggal', 'Perusahaan', 'Role'],
+const markets = [  // label sets only: [name, date, company, role]
+  ['de', 'Datum', 'Firma', 'Rolle'],
+  ['pl', 'Data', 'Firma', 'Rola'],
+  ['pt', 'Data', 'Empresa', 'Vaga'],
+  ['da', 'Dato', 'Virksomhed', 'Rolle'],
+  ['id', 'Tanggal', 'Perusahaan', 'Role'],
 ];
 const baseFields = ['num', 'date', 'company', 'role', 'score', 'status', 'pdf', 'report'];
 const values = {
@@ -39,8 +42,7 @@ function assertRow(row, fields, overrides = {}) {
 for (const [mode, date, company, role] of markets) {
   const labels = { num: '#', date, company, role, score: 'Score', status: 'Status', pdf: 'PDF', report: 'Report', location: 'Location', via: 'Via', notes: 'Notes' };
   const shipped = fixture(labels, baseFields);
-  check(`${mode}: exact shipped header reads all eight fields`, () => {
-    assert.ok(readFileSync(join(ROOT, 'modes', `${mode}.md`), 'utf8').includes(shipped[0]), 'fixture must match the shipped mode');
+  check(`${mode}: header reads all eight fields`, () => {
     assert.ok(isHeaderRow(shipped[0]));
     assertRow(parseTrackerRow(shipped[2], resolveColumns(shipped)), baseFields);
   });
