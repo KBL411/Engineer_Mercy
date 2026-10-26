@@ -28,7 +28,7 @@ const PROMPT = readFileSync(join(ROOT, 'batch/batch-prompt.md'), 'utf-8');
 console.log('\nbatch-runner.sh — ATS API fallback for the JD file (#4246)');
 
 const apiBlock = (() => {
-  const m = SRC.match(/  local jd_api_words=0\n  if \[\[ ! -s "\$jd_file"[\s\S]*?\n  fi\n/);
+  const m = SRC.match(/  local jd_api_words=0\n(?:  #[^\n]*\n)*  if \[\[ [\s\S]*?\n  fi\n/);
   return m ? m[0] : null;
 })();
 
@@ -50,9 +50,11 @@ if (apiBlock && /node "\$PROJECT_DIR\/fetch-jd\.mjs" "\$url"/.test(apiBlock)) {
   fail('fetch-jd.mjs must be called as: node "$PROJECT_DIR/fetch-jd.mjs" "$url"');
 }
 
-// It only fires when the JD file is still empty.
-if (apiBlock && /\[\[ ! -s "\$jd_file"/.test(apiBlock)) pass('the fallback only fires when the JD file is empty');
-else fail('the fallback must be guarded by [[ ! -s "$jd_file" ]]');
+// Fork fr-data: the API is asked even when the static fetch kept text (an
+// embedded Greenhouse board can return the application form alone), so the
+// guard is the presence of fetch-jd.mjs, not an empty JD file.
+if (apiBlock && /\[\[ -f "\$PROJECT_DIR\/fetch-jd\.mjs" \]\]/.test(apiBlock)) pass('the fallback is guarded by the presence of fetch-jd.mjs');
+else fail('the fallback must be guarded by [[ -f "$PROJECT_DIR/fetch-jd.mjs" ]]');
 
 // The worker prompt must not put the offer URL inside a shell command.
 if (!/fetch-jd\.mjs[^\n]*\{\{URL\}\}/.test(PROMPT) && !/node [^\n]*\{\{URL\}\}/.test(PROMPT)) {
@@ -122,9 +124,16 @@ if (!bash || !apiBlock) {
     if (thin.jd === '') pass('API text under the word threshold is not used as a JD');
     else fail('API text under the word threshold was written to the JD file');
 
-    const kept = run({ mode: 'hit', url: 'https://boards.greenhouse.io/acme/jobs/1', seed: 'the curl prefetch already wrote a real JD' });
-    if (kept.jd === 'the curl prefetch already wrote a real JD' && kept.trace === '') pass('non-empty JD file: fetch-jd.mjs is not called');
-    else fail('non-empty JD file: the fallback ran anyway');
+    // Fork fr-data: a non-empty JD file is still checked against the API, and a
+    // real API answer replaces it; a miss leaves the static text untouched.
+    const seedText = 'the curl prefetch already wrote a real JD';
+    const replaced = run({ mode: 'hit', url: 'https://boards.greenhouse.io/acme/jobs/1', seed: seedText });
+    if (replaced.jd === long && replaced.trace !== '') pass('non-empty JD file + API hit: the API text replaces the static text');
+    else fail('non-empty JD file + API hit: the API text did not replace the static text');
+
+    const kept = run({ mode: 'miss', url: 'https://boards.greenhouse.io/acme/jobs/1', seed: seedText });
+    if (kept.jd === seedText) pass('non-empty JD file + API miss: the static text is kept');
+    else fail('non-empty JD file + API miss: the static text was lost');
 
     const absent = run({ mode: 'hit', url: 'https://jobs.ashbyhq.com/acme/123', withStub: false });
     if (absent.jd === '') pass('fetch-jd.mjs absent: the fallback is skipped without error');

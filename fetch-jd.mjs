@@ -26,6 +26,7 @@
  */
 
 import { fetchJdViaKnownApi } from './browser-extract.mjs';
+import { fetchWttjJd } from './lib/wttj-jd.mjs';
 import { isMainModule } from './lib/is-main-module.mjs';
 
 const TEXT_CAP = 20_000; // a batch report reads the whole JD; no token-budget reason to cap tighter
@@ -39,7 +40,11 @@ async function main() {
     process.exit(1);
   }
 
-  const result = await fetchJdViaKnownApi(url, TEXT_CAP, TIMEOUT_MS);
+  // Welcome to the Jungle blocks page reads (CloudFront); its public search index
+  // carries the posting (lib/wttj-jd.mjs). Fork fr-data: the batch worker has no
+  // browser or WebFetch, so this is the only way it reads a WTTJ offer.
+  const result = (await fetchWttjJd(url, { textCap: TEXT_CAP, timeoutMs: TIMEOUT_MS }))
+    ?? await fetchJdViaKnownApi(url, TEXT_CAP, TIMEOUT_MS);
   // No stderr, by design: the caller's browser/WebFetch fallback is the
   // intended next step, and warning on every non-covered host would make the
   // normal path look broken.

@@ -146,6 +146,24 @@ function main() {
       }
     }
 
+    // Real usage and cost, written by batch-runner.sh from claude's JSON output.
+    // It replaces whatever the model reported about itself in the log text.
+    let realCost = null;
+    const usageFile = w.logFile.replace(/\.log$/, '.usage.json');
+    if (fs.existsSync(usageFile)) {
+      try {
+        const u = JSON.parse(fs.readFileSync(usageFile, 'utf-8'));
+        const t = u.usage || {};
+        steps.evaluation = {
+          prompt: (t.input_tokens || 0) + (t.cache_creation_input_tokens || 0),
+          completion: t.output_tokens || 0,
+          cached: t.cache_read_input_tokens || 0,
+          isZero: false,
+        };
+        if (typeof u.total_cost_usd === 'number') realCost = u.total_cost_usd;
+      } catch { /* unreadable usage file: keep the log-derived numbers */ }
+    }
+
     // Extract model and provider from metadata line if present
     const metaMatch = logContent.match(/\(metadata:\s*model=([^,\s)]+),\s*provider=([^)\s]+)\)/);
     let model = null;
@@ -195,6 +213,11 @@ function main() {
     }
 
     const padTotal = 'total:'.padEnd(15);
+    if (realCost !== null) {
+      grandCost += realCost;
+      console.log(`  ${padTotal}${formatK(workerTotalTokens)} tokens + ${formatK(steps.evaluation.cached)} cached ($${realCost.toFixed(4)}, measured)`);
+      continue;
+    }
     if (model !== null) {
       const workerUsage = Object.values(steps).reduce((acc, s) => {
         if (!s.isZero) {

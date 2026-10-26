@@ -75,6 +75,7 @@ claude_worker_permission_args() {
       "Bash(node keyword-match.mjs *)"
       "Bash(node generate-pdf.mjs *)"
       "Bash(node salary-gap.mjs *)"
+      "Bash(node check-jd-archive.mjs *)"
       "Bash(date)"
       "Bash(date *)"
     --disallowedTools
@@ -1150,7 +1151,10 @@ process_offer() {
   # the known ATS API hosts it resolves from the URL, so a private or unknown
   # host is a miss (exit 1), not a request.
   local jd_api_words=0
-  if [[ ! -s "$jd_file" && -f "$PROJECT_DIR/fetch-jd.mjs" ]]; then
+  # Fork fr-data: asked even when the static fetch kept text. On an embedded
+  # Greenhouse board that text can be the application form alone (enough words to
+  # pass the check above, no job description), and the API answer is the real JD.
+  if [[ -f "$PROJECT_DIR/fetch-jd.mjs" ]]; then
     local jd_api_tmp
     jd_api_tmp="$(mktemp "${TMPDIR:-/tmp}/batch-jd-api.XXXXXX")"
     if node "$PROJECT_DIR/fetch-jd.mjs" "$url" > "$jd_api_tmp" 2>/dev/null; then
@@ -1247,7 +1251,7 @@ process_offer() {
   if [[ -n "$RESOLVED_MODEL" ]]; then
     claude_args+=(--model "$RESOLVED_MODEL")
   fi
-  claude_args+=(--append-system-prompt-file "$resolved_prompt" "$prompt")
+  claude_args+=(--output-format json --append-system-prompt-file "$resolved_prompt" "$prompt")
 
   # Non-claude CLIs lack --append-system-prompt-file, so concatenate the
   # resolved system prompt and the per-job prompt into a single argument.
@@ -1272,6 +1276,10 @@ process_offer() {
     case "$CLI" in
       claude)
         claude "${claude_args[@]}" > "$log_file" 2>&1 || exit_code=$?
+        # claude printed a JSON envelope: keep its text in the log (what everything
+        # below parses) and its real usage and cost beside it. A log that is not
+        # that envelope (crash, rate-limit text) is left as it is.
+        node "${PROJECT_DIR:-.}/batch/split-claude-json.mjs" "$log_file" "${log_file%.log}.usage.json" 2>/dev/null || true
         ;;
       opencode)
         if command -v opencode &>/dev/null; then

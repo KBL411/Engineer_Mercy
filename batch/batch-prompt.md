@@ -517,6 +517,8 @@ reports/{{REPORT_NUM}}-{company-slug}-{{DATE}}.md
 
 `{company-slug}` is lowercase, hyphenated, and filesystem-safe.
 
+Write it with one Write call straight to that path. Do not build it in pieces through temporary files: the permission envelope allows writes under `reports/`, `output/` and `batch/tracker-additions/` only, so a draft in `/tmp` or `batch/tmp/` is refused and the evaluation is lost.
+
 Report header:
 
 ```markdown

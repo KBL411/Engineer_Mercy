@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ROOT } from './helpers.mjs';
+import { CLAUDE_RANK_FLAGS } from '../rank-pipeline.mjs';
 
 for (const [cli, command] of [['codex', 'exec'], ['opencode', 'run'], ['claude', '-p']]) {
   test(`${cli} receives the requested model without changing its headless command`, {
@@ -30,14 +31,18 @@ for (const [cli, command] of [['codex', 'exec'], ['opencode', 'run'], ['claude',
       const rank = (args) => execFileSync(process.execPath, [join(ROOT, 'rank-pipeline.mjs'), '--cli', cli, ...args], { env });
       rank(['--model', 'fixture/provider-model']);
       const args = JSON.parse(readFileSync(env.RANK_ARGS, 'utf8'));
+      // claude runs with no tool, outside the user's settings (CLAUDE_RANK_FLAGS);
+      // the other CLIs take the prompt right after the command.
+      const flags = cli === 'claude' ? CLAUDE_RANK_FLAGS : [];
       assert.equal(args[0], command);
-      assert.match(args[1], /POSTINGS:/);
-      assert.deepEqual(args.slice(2), ['--model', 'fixture/provider-model']);
+      assert.deepEqual(args.slice(1, 1 + flags.length), flags);
+      assert.match(args[1 + flags.length], /POSTINGS:/);
+      assert.deepEqual(args.slice(2 + flags.length), ['--model', 'fixture/provider-model']);
       assert.equal(readFileSync(join(root, 'data', 'pipeline.md'), 'utf8'), `${raw} | rank: 4.0/5 — Fixture match`);
 
       writeFileSync(join(root, 'data', 'pipeline.md'), raw);
       rank([]);
-      assert.equal(JSON.parse(readFileSync(env.RANK_ARGS, 'utf8')).length, 2);
+      assert.equal(JSON.parse(readFileSync(env.RANK_ARGS, 'utf8')).length, 2 + flags.length);
     } finally {
       rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
