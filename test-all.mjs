@@ -49,7 +49,7 @@
 
 
 import { execSync, execFileSync, spawn, spawnSync } from 'child_process';
-import { readFileSync, existsSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync, rmSync as _rmSync, statSync, unlinkSync, realpathSync, symlinkSync, copyFileSync, openSync, closeSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync, rmSync as _rmSync, statSync, unlinkSync, realpathSync, symlinkSync, copyFileSync, openSync, closeSync, lstatSync } from 'fs';
 
 // Windows keeps a handle open on a just-exited child process's working files
 // for a short window (antivirus and Search Indexer widen it), so removing a
@@ -860,19 +860,11 @@ const scripts = [
   { name: 'company-funded.mjs --self-test', expectExit: 0 },
   { name: 'invite-match.mjs --self-test', expectExit: 0 },
   { name: 'tracker-sync-check.mjs --self-test', expectExit: 0 },
-  { name: 'updater-migration-tests.mjs', expectExit: 0 },
   { name: 'validate-portals.mjs --file templates/portals.example.yml', expectExit: 0 },
-  { name: 'validate-system-paths-coverage.mjs --self-test', expectExit: 0 },
-  // The bare coverage run is NOT here on purpose: this section executes each
-  // script from a throwaway copy of the repo, and the coverage check needs
-  // `git ls-files` on the REAL tree. Running it here validated nothing and
-  // exited 0 no matter what, which is how five unregistered files shipped.
-  // It now runs from ROOT in section 5.
   { name: 'validate-untrusted-content-coverage.mjs --self-test', expectExit: 0 },
-  // Same reasoning as above: the bare run needs AGENTS.md and the real
+  // The bare run is NOT here on purpose: it needs AGENTS.md and the real
   // modes/ tree sitting next to it, which this throwaway single-file copy
-  // does not have. It runs from ROOT alongside the SYSTEM_PATHS coverage
-  // check below.
+  // does not have. It runs from ROOT in section 5.
   // Missing-file run: must exit 0 gracefully and hit no network. Do not use the
   // default portals.yml because end-user workspaces often have a real user-layer
   // portals file that would trigger a live remote sweep during tests.
@@ -880,8 +872,6 @@ const scripts = [
   // Pins #4250: --help must exit fast on its own, never fall through to the
   // full network sweep (which is what "no output for minutes" looks like).
   { name: 'verify-portals.mjs --help', expectExit: 0 },
-  { name: 'update-system.mjs check', expectExit: 0 },
-  { name: 'seed-fixture.mjs --self-test', expectExit: 0 },
   { name: 'archive-posting.mjs --help', expectExit: 0 },
 ];
 
@@ -923,7 +913,7 @@ try {
         EXCLUDE_AT_ANY_DEPTH.has(entry.name)
         // Everything else is a top-level workspace dir (data/, reports/, …) and
         // is matched by basename ONLY at the repo root (depth 0), so nested
-        // fixture subdirs such as test-fixtures/upgrade/state-*/data and
+        // fixture subdirs such as test-fixtures/*/data and
         // .../reports still get copied.
         || (depth === 0 && exclude.includes(entry.name)),
       // Directories are materialised even when empty, which the old recursion
@@ -952,7 +942,6 @@ try {
     '.update-lock',
     '.career-ops-web',
     '.playwright-mcp',
-    '.agents',
     'cdp-diff.patch',
     'cdp-diff-focused.patch',
     'test_diff.patch',
@@ -967,8 +956,7 @@ try {
   mkdirSync(join(scriptTmp, 'data'), { recursive: true });
   mkdirSync(join(scriptTmp, 'reports'), { recursive: true });
   // The throwaway copy excludes user data, but these exact empty scaffolds are
-  // system-owned updater files. Keep them in the fixture so the migration
-  // check can validate every SYSTEM_PATHS entry without copying user content.
+  // system-owned files. Keep them in the fixture without copying user content.
   mkdirSync(join(scriptTmp, 'data', 'offers'), { recursive: true });
   mkdirSync(join(scriptTmp, 'data', 'parser-output'), { recursive: true });
   for (const file of [
@@ -2280,17 +2268,12 @@ console.log('\n5. Data contract validation');
 
 // Check system files exist
 const systemFiles = [
-  'CLAUDE.md', 'CODEX.md', 'OPENCODE.md', 'VERSION', 'DATA_CONTRACT.md', 'docs/CODEX.md',
+  'CLAUDE.md', 'VERSION', 'DATA_CONTRACT.md',
   'modes/_shared.md', 'modes/_profile.template.md',
   'modes/oferta.md', 'modes/pdf.md', 'modes/scan.md',
   'modes/heuristics/recruiter-side.md',
   'templates/states.yml', 'templates/cv-template.html',
   '.claude/skills/career-ops/SKILL.md',
-  '.opencode/skills/career-ops/SKILL.md',
-  '.qwen/skills/career-ops/SKILL.md',
-  '.antigravitycli/skills/career-ops/SKILL.md',
-  '.grok/skills/career-ops/SKILL.md',
-  '.kimi/skills/career-ops/SKILL.md',
 ];
 
 for (const f of systemFiles) {
@@ -2301,102 +2284,28 @@ for (const f of systemFiles) {
   }
 }
 
-// Per-CLI SKILL.md entrypoints must resolve to the canonical skill content.
+// The skill router must be a real file with real content.
 //
 // The defect this guards is a regular-file blob whose content is the LINK PATH
-// AS TEXT — exactly what happened to .kimi/ when a symlink was created under
-// core.symlinks=false and committed as-is (#1051). That ships a broken, empty
-// skill to every user of that CLI.
-//
-// Index mode was a faithful proxy for that until #2259 added
-// materializeSkillEntrypoints(), which writes the real content as a regular
-// file on filesystems without symlink support. That is a second, CORRECT
-// mode-100644 state, so mode alone can no longer tell the two apart:
-//
-//   120000                          → symlink                        (correct)
-//   100644 + canonical blob         → materialized entrypoint        (correct)
-//   100644 + any other blob         → link-path text or stale copy   (BROKEN)
-//
-// Comparing the blob to the canonical entrypoint asserts the invariant the
-// defect is actually about, and still catches #1051: a link-path blob never
-// equals the canonical blob. Reading the INDEX (not the filesystem) keeps this
-// true on Windows checkouts, where a symlink entry materializes as a text file.
-const CANONICAL_ENTRYPOINT = '.agents/skills/career-ops/SKILL.md';
-const stagedBlob = (path) => {
-  const entry = run('git', ['ls-files', '-s', path]);
-  if (entry === null || entry === '') return null;
-  const [mode, sha] = entry.split(/\s+/);
-  return { mode, sha };
-};
-
-const canonicalEntry = stagedBlob(CANONICAL_ENTRYPOINT);
-if (!canonicalEntry) {
-  fail(`Could not read git index entry for the canonical entrypoint ${CANONICAL_ENTRYPOINT}`);
-}
-
-const skillEntrypoints = systemFiles.filter((f) => f.endsWith('/skills/career-ops/SKILL.md'));
-for (const f of skillEntrypoints) {
-  const staged = stagedBlob(f);
-  if (!staged) {
-    fail(`Could not read git index entry for ${f} (lookup failed — not evidence of absence)`);
-  } else if (staged.mode === '120000') {
-    pass(`Entrypoint is a real symlink in git: ${f}`);
-  } else if (canonicalEntry && staged.sha === canonicalEntry.sha) {
-    pass(`Entrypoint is a materialized regular file with canonical content: ${f}`);
-  } else {
-    fail(`Entrypoint committed as a REGULAR file (mode ${staged.mode}) whose content is not the canonical skill — users of this CLI get a broken skill: ${f}`);
-  }
-}
-
-// The SYSTEM_PATHS coverage guard must FAIL when it cannot inspect the tree,
-// not report success.
-//
-// For as long as that guard existed it was a no-op in CI. The script-execution
-// section above runs each script from a throwaway copy created inside the repo,
-// and `git ls-files` from an untracked directory returns zero paths — so the
-// guard printed "OK: 0 tracked files covered" and exited 0 while the real tree
-// had an unregistered top-level file. `update-system` never ships an
-// unregistered file, so every user who updates silently loses it. That class has
-// landed five times with this check green throughout.
-//
-// This asserts the opposite behaviour directly: invoked where git sees nothing,
-// the guard must exit non-zero.
+// AS TEXT — what happens when a symlink is created under core.symlinks=false
+// and committed as-is (#1051): the skill ships empty. The router used to be a
+// symlink to a second copy; it is now the one canonical regular file, so there
+// is no link left to resolve, and a link-path blob is told apart by its size.
 {
-  // Inside the repository, because the point is a directory git knows nothing
-  // about; under the scratch prefix, so that no walker reads the two scripts
-  // copied into it as part of the tree (#5146).
-  const probeDir = mkdtempSync(join(ROOT, `${SCRATCH_PREFIX}coverage-guard-probe-`));
-  try {
-    copyFileSync(join(ROOT, 'validate-system-paths-coverage.mjs'), join(probeDir, 'validate-system-paths-coverage.mjs'));
-    copyFileSync(join(ROOT, 'update-system.mjs'), join(probeDir, 'update-system.mjs'));
-    const probe = spawnSync(process.execPath, [join(probeDir, 'validate-system-paths-coverage.mjs')], {
-      cwd: probeDir,
-      encoding: 'utf-8',
-    });
-    if (probe.status !== 0) {
-      pass('SYSTEM_PATHS coverage guard fails when it cannot inspect the tree (not a silent pass)');
+  const skillRouter = '.claude/skills/career-ops/SKILL.md';
+  const entry = run('git', ['ls-files', '-s', skillRouter]);
+  const mode = entry ? entry.split(/\s+/)[0] : null;
+  if (mode === '120000') {
+    fail(`${skillRouter} is a symlink in git — the skill router must be a regular file`);
+  } else if (mode !== null && mode !== '100644' && mode !== '100755') {
+    fail(`${skillRouter} has unexpected git mode ${mode}`);
+  } else {
+    const st = lstatSync(join(ROOT, skillRouter), { throwIfNoEntry: false });
+    if (st && st.isFile() && st.size > 1000) {
+      pass(`Skill router is a regular file with real content: ${skillRouter}`);
     } else {
-      fail('SYSTEM_PATHS coverage guard exited 0 from an untracked dir — it is a no-op in CI again');
+      fail(`${skillRouter} is not a regular file larger than 1000 bytes — link-path text or a stub ships a broken skill`);
     }
-  } catch (err) {
-    fail(`could not probe the SYSTEM_PATHS coverage guard: ${err.message} (a failed probe is not a pass)`);
-  } finally {
-    rmSync(probeDir, { recursive: true, force: true });
-  }
-}
-
-// And the check itself, run where it can actually see the tree. This is the
-// assertion that was missing: every tracked file must be claimed by SYSTEM_PATHS
-// or USER_PATHS, or `update-system` silently stops shipping it.
-{
-  const cov = spawnSync(process.execPath, [join(ROOT, 'validate-system-paths-coverage.mjs')], {
-    cwd: ROOT,
-    encoding: 'utf-8',
-  });
-  if (cov.status === 0) {
-    pass('every tracked file is covered by SYSTEM_PATHS or USER_PATHS');
-  } else {
-    fail(`SYSTEM_PATHS coverage gap — a new file is unregistered and update-system will not ship it:\n${(cov.stderr || cov.stdout || '').trim()}`);
   }
 }
 
@@ -2412,32 +2321,6 @@ for (const f of skillEntrypoints) {
     pass('canonical untrusted-external-content directive is present and referenced by every ingesting mode');
   } else {
     fail(`Untrusted-content directive coverage gap:\n${(untrusted.stderr || untrusted.stdout || '').trim()}`);
-  }
-}
-
-// The plugin manifest ships in three locations: .claude-plugin/plugin.json is
-// canonical (Claude Code + Copilot CLI both read it); .github/plugin/
-// plugin.json exists only because the awesome-copilot marketplace validator
-// accepts just three paths and the Claude-compat one is not among them; and
-// .codex-plugin/plugin.json is the path the awesome-ai-plugins catalogue
-// resolves a Codex plugin's install_url to. All are bumped by release-please;
-// this assert makes any other divergence fail CI loudly instead of shipping
-// drifting manifests.
-{
-  const canonManifest = readFile('.claude-plugin/plugin.json');
-  const mirrors = [
-    ['.github/plugin/plugin.json', 'awesome-copilot validator needs it'],
-    ['.codex-plugin/plugin.json', 'awesome-ai-plugins resolves the Codex install_url to it'],
-  ];
-  for (const [mirrorPath, why] of mirrors) {
-    const mirror = fileExists(mirrorPath) ? readFile(mirrorPath) : null;
-    if (mirror === null) {
-      fail(`${mirrorPath} missing — ${why} (mirror of .claude-plugin/plugin.json)`);
-    } else if (canonManifest === mirror) {
-      pass(`plugin.json mirror (${mirrorPath}) is byte-identical to the canonical manifest`);
-    } else {
-      fail(`plugin.json mirror (${mirrorPath}) DIVERGED from .claude-plugin/plugin.json — edit the canonical one and copy it verbatim`);
-    }
   }
 }
 
@@ -2560,14 +2443,12 @@ const leakPatterns = [
 
 const scanExtensions = ['md', 'yml', 'html', 'mjs', 'sh', 'go', 'json'];
 const allowedFiles = [
-  // English README + localized translations (all legitimately credit Santiago)
-  'README.md', 'README.ar.md', 'README.da.md', 'README.de.md', 'README.es.md', 'README.fr.md', 'README.hi.md',
-  'README.ja.md', 'README.ko-KR.md', 'README.pl.md', 'README.pt-BR.md', 'README.ru.md', 'README.ta.md', 'README.cn.md',
-  'README.ua.md', 'README.zh-TW.md', 'README.tr.md',
+  // README (legitimately credits Santiago)
+  'README.md',
   // Standard project files
   'LICENSE', 'CITATION.cff', 'CONTRIBUTING.md', 'CHANGELOG.md', 'TRADEMARK.md',
   'package.json', '.github/FUNDING.yml', 'CLAUDE.md', 'AGENTS.md', 'go.mod', 'test-all.mjs',
-  '.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.github/plugin/plugin.json',
+  '.github/plugin/plugin.json',
   // Community / governance files (added in v1.3.0, all legitimately reference the maintainer)
   'CODE_OF_CONDUCT.md', 'GOVERNANCE.md', 'SECURITY.md', 'SUPPORT.md',
   // Manifesto: the author signs it publicly; the ledger carries signers' names by design
@@ -2589,9 +2470,9 @@ const allowedFiles = [
 // the ones this PR actually intends to allow, so they get the tighter
 // check instead of loosening the shared one.
 const exactAllowedFiles = new Set([
-  // GitHub Sponsors funding target + Codex plugin manifest (#4131) — same
-  // maintainer-credit shape as the .claude-plugin/.github/plugin ones above.
-  'funding.json', '.codex-plugin/plugin.json',
+  // GitHub Sponsors funding target (#4131) — same maintainer-credit shape as
+  // the .github/plugin one above.
+  'funding.json',
   // Hired Wall: celebrates a hire with a link back to the project, and the
   // scripts/tests that build and cover that feature necessarily carry the
   // same URL (#4131).
@@ -2932,73 +2813,6 @@ try {
   fail(`PDF renderer post-launch cleanup test crashed: ${error.message}`);
 }
 
-// ── 7c. UPDATER DASHBOARD REBUILD ─────────────────────────────────
-
-console.log('\n7c. Updater dashboard rebuild');
-
-const updateSystemScript = readFile('update-system.mjs');
-if (
-  /git\('diff',\s*'--name-only',\s*'HEAD',\s*'--',\s*'dashboard'\)/.test(updateSystemScript) &&
-  /path\.startsWith\(['"]dashboard\/['"]\)\s*&&\s*path\.endsWith\(['"]\.go['"]\)/.test(updateSystemScript) &&
-  /go build -o career-dashboard \./.test(updateSystemScript) &&
-  /cwd:\s*join\(ROOT,\s*['"]dashboard['"]\)/.test(updateSystemScript) &&
-  /dashboard binary rebuild skipped/.test(updateSystemScript)
-) {
-  pass('update-system rebuilds dashboard binary when dashboard Go sources change');
-} else {
-  fail('update-system does not rebuild dashboard binary after dashboard Go source updates');
-}
-
-if (updateSystemScript.includes("'CODEX.md'")) {
-  pass('update-system preserves CODEX.md as a system-layer wrapper');
-} else {
-  fail('update-system does not preserve CODEX.md');
-}
-
-try {
-  const {
-    DASHBOARD_REBUILD_TIMEOUT_MS,
-    NPM_INSTALL_TIMEOUT_MS,
-    PLAYWRIGHT_INSTALL_TIMEOUT_MS,
-    REEXEC_BUFFER_TIMEOUT_MS,
-    UPDATE_PATH_CHECKOUT_BUDGET_MS,
-    gitTimeoutMs,
-    parsePositiveInt,
-    reexecTimeoutMs,
-  } = await import(pathToFileURL(join(ROOT, 'update-system.mjs')).href);
-  const fetchTimeout = gitTimeoutMs(['fetch']);
-  const gitCommandTimeout = gitTimeoutMs(['checkout']);
-  const updatePathCount = 100;
-  const minimumReexecBudget =
-    fetchTimeout +
-    gitCommandTimeout * 3 +
-    updatePathCount * UPDATE_PATH_CHECKOUT_BUDGET_MS +
-    NPM_INSTALL_TIMEOUT_MS +
-    PLAYWRIGHT_INSTALL_TIMEOUT_MS +
-    DASHBOARD_REBUILD_TIMEOUT_MS +
-    REEXEC_BUFFER_TIMEOUT_MS;
-
-  if (parsePositiveInt('42', 7) === 42 && parsePositiveInt('-1', 7) === 7 && parsePositiveInt('nope', 7) === 7) {
-    pass('update-system timeout parser accepts only positive integer overrides');
-  } else {
-    fail('update-system timeout parser does not preserve fallback semantics');
-  }
-
-  if (gitTimeoutMs(['fetch']) > gitTimeoutMs(['checkout'])) {
-    pass('update-system gives fetch a larger timeout than ordinary git commands');
-  } else {
-    fail('update-system fetch timeout is not larger than ordinary git command timeout');
-  }
-
-  if (reexecTimeoutMs(updatePathCount) >= minimumReexecBudget) {
-    pass('update-system sizes self-reexec timeout for downstream fetch/git/install/rebuild work');
-  } else {
-    fail('update-system self-reexec timeout budget is too small for downstream apply work');
-  }
-} catch (e) {
-  fail(`update-system timeout helper test crashed: ${e.message}`);
-}
-
 // ── 7d. OUTPUT LANGUAGE CONTRACT ─────────────────────────────────
 
 console.log('\n7d. Output language contract');
@@ -3006,7 +2820,7 @@ console.log('\n7d. Output language contract');
 const profileExample = readTextLF('config/profile.example.yml');
 const outputLanguageAgentsDoc = readTextLF('AGENTS.md');
 const outputLanguageClaudeDoc = readTextLF('CLAUDE.md');
-const careerOpsSkill = readTextLF('.agents/skills/career-ops/SKILL.md');
+const careerOpsSkill = readTextLF('.claude/skills/career-ops/SKILL.md');
 const batchPrompt = readTextLF('batch/batch-prompt.md');
 
 if (/language:\s*\n(?:\s*#.*\n)*\s*output:\s*["']?en["']?/.test(profileExample)) {
@@ -3562,7 +3376,7 @@ if (
   fail('_custom.md read-path regressed: missing Sources of Truth row, honor rule in _shared.md, or the pre-generation read in pdf.md (#1388 would reopen)');
 }
 
-for (const skillPath of ['.claude/skills/career-ops/SKILL.md', '.agents/skills/career-ops/SKILL.md']) {
+for (const skillPath of ['.claude/skills/career-ops/SKILL.md']) {
   if (!fileExists(skillPath)) {
     fail(`${skillPath} is missing`);
     continue;
@@ -3608,7 +3422,7 @@ if (
   fail('email mode missing required application-email behavior');
 }
 
-for (const skillPath of ['.claude/skills/career-ops/SKILL.md', '.agents/skills/career-ops/SKILL.md']) {
+for (const skillPath of ['.claude/skills/career-ops/SKILL.md']) {
   if (!fileExists(skillPath)) {
     fail(`${skillPath} is missing`);
     continue;
@@ -4496,7 +4310,7 @@ if (
   }
 }
 
-const routerSkill = readFile('.agents/skills/career-ops/SKILL.md');
+const routerSkill = readFile('.claude/skills/career-ops/SKILL.md');
 if (
   /argument-hint:.*offer-prep/.test(routerSkill) &&
   routerSkill.includes('| `offer-prep` | `offer-prep` |') &&
@@ -4638,17 +4452,15 @@ for (const mode of ['discover', 'text']) {
 
 const dataContractDoc = readFile('DATA_CONTRACT.md');
 const gitignoreDoc = readFile('.gitignore');
-const updaterSrc = readFile('update-system.mjs');
 if (
   dataContractDoc.includes('data/offers/') &&
   dataContractDoc.includes('modes/offer-prep.md') &&
   gitignoreDoc.includes('data/offers/*') &&
-  gitignoreDoc.includes('!data/offers/.gitkeep') &&
-  updaterSrc.includes("'modes/offer-prep.md'")
+  gitignoreDoc.includes('!data/offers/.gitkeep')
 ) {
-  pass('offer-prep registered in data contract, gitignore, and updater manifest');
+  pass('offer-prep registered in data contract and gitignore');
 } else {
-  fail('offer-prep missing from data contract / gitignore / SYSTEM_PATHS');
+  fail('offer-prep missing from data contract / gitignore');
 }
 
 if (
@@ -4815,23 +4627,6 @@ if (
   pass('pipeline mode prevents parallel Playwright session cross-contamination (#2551)');
 } else {
   fail('pipeline concurrency section still permits unsafe parallel Playwright workers (#2551)');
-}
-
-const openrouterRunnerPath = join(ROOT, 'openrouter-runner.mjs');
-if (!existsSync(openrouterRunnerPath)) {
-  fail('job-page fetch boundary source file is missing (#2619)');
-} else {
-  const openrouterRunner = readFile('openrouter-runner.mjs');
-  if (
-    openrouterRunner.includes('// Job page content fetcher (Playwright-first, plain fetch fallback)') &&
-    openrouterRunner.includes('browser = await chromium.launch({ headless: true })') &&
-    openrouterRunner.includes('falling back to plain fetch.') &&
-    openrouterRunner.includes('if (browser) await browser.close().catch(() => {})')
-  ) {
-    pass('job-page fetch boundary launches a browser first and closes its session before fallback (#2619)');
-  } else {
-    fail('job-page fetch boundary lost browser-first or per-call session cleanup (#2619)');
-  }
 }
 
 // --- salary tracking mode wiring (#1656 PR-2) ---
@@ -6965,7 +6760,7 @@ for (const section of requiredSections) {
 
 console.log('\n11. CLI wrapper file integrity');
 
-const cliWrappers = ['CLAUDE.md', 'CODEX.md', 'OPENCODE.md'];
+const cliWrappers = ['CLAUDE.md'];
 for (const f of cliWrappers) {
   if (!fileExists(f)) {
     fail(`Missing CLI wrapper: ${f}`);
@@ -6977,35 +6772,6 @@ for (const f of cliWrappers) {
   } else {
     fail(`${f} does NOT reference AGENTS.md`);
   }
-}
-if (!fileExists('GEMINI.md')) {
-  fail('Missing legacy Gemini context guard: GEMINI.md');
-} else {
-  const geminiContext = readFile('GEMINI.md');
-  if (/^@(?:\.\/)?AGENTS\.md/m.test(geminiContext)) {
-    fail('GEMINI.md imports AGENTS.md and duplicates Antigravity context');
-  } else {
-    pass('GEMINI.md is a no-op context guard for Antigravity');
-  }
-}
-
-const codexWrapper = fileExists('CODEX.md') ? readFile('CODEX.md') : '';
-if (/^@(?:\.\/)?AGENTS\.md/m.test(codexWrapper)) {
-  pass('CODEX.md imports AGENTS.md as a thin wrapper');
-} else {
-  fail('CODEX.md is not a thin AGENTS.md wrapper');
-}
-
-const codexGuideDoc = fileExists('docs/CODEX.md') ? readFile('docs/CODEX.md') : '';
-if (
-  /AGENTS\.md/.test(codexGuideDoc) &&
-  /CODEX\.md/.test(codexGuideDoc) &&
-  /codex exec/.test(codexGuideDoc) &&
-  /Codex/i.test(codexGuideDoc)
-) {
-  pass('docs/CODEX.md is a complete Codex guide');
-} else {
-  fail('docs/CODEX.md is missing required content');
 }
 
 const claudeWrapperLines = readFile('CLAUDE.md').trim().split(/\r?\n/);
@@ -7030,75 +6796,31 @@ for (const [name, marker] of criticalRoutingContracts) {
   if (marker.test(agents)) pass(`AGENTS.md preserves ${name} routing for Claude`);
   else fail(`AGENTS.md is missing ${name} routing required by the Claude wrapper`);
 }
+// The router is the one canonical regular file (no second copy, no symlink).
 const claudeSkillEntrypoint = readFile('.claude/skills/career-ops/SKILL.md');
-if (/\.agents\/skills\/career-ops\/SKILL\.md/.test(claudeSkillEntrypoint) || claudeSkillEntrypoint === readFile('.agents/skills/career-ops/SKILL.md')) {
+if (/^---\r?\n(?:[\s\S]*?\n)?name:\s*career-ops\s*\r?\n/.test(claudeSkillEntrypoint) && !/^\.\.?\//.test(claudeSkillEntrypoint.trim())) {
   pass('Claude skill invocation resolves to the canonical career-ops router');
 } else {
   fail('Claude skill invocation does not resolve to the canonical career-ops router');
 }
 
-// ── 12. SKILL SYMLINK INTEGRITY ─────────────────────────────
+// ── 12. SKILL ROUTER INTEGRITY ──────────────────────────────
 
-console.log('\n12. Skill symlink integrity');
+console.log('\n12. Skill router integrity');
 
-const canonicalSkill = '.agents/skills/career-ops/SKILL.md';
-const symlinks = [
-  '.claude/skills/career-ops/SKILL.md',
-  '.opencode/skills/career-ops/SKILL.md',
-  '.qwen/skills/career-ops/SKILL.md',
-  '.antigravitycli/skills/career-ops/SKILL.md',
-  '.grok/skills/career-ops/SKILL.md',
-];
-
-let canonicalReal = null;
-let canonicalContent = null;
+const canonicalSkill = '.claude/skills/career-ops/SKILL.md';
 try {
-  canonicalReal = realpathSync(join(ROOT, canonicalSkill));
-  canonicalContent = readFile(canonicalSkill);
-  pass(`Canonical skill resolves: ${canonicalSkill}`);
+  const canonicalReal = realpathSync(join(ROOT, canonicalSkill));
+  if (canonicalReal === join(realpathSync(ROOT), canonicalSkill)) {
+    pass(`Canonical skill is the file itself, not a link: ${canonicalSkill}`);
+  } else {
+    fail(`Canonical skill resolves elsewhere (${canonicalReal}): ${canonicalSkill}`);
+  }
 } catch {
   fail(`Canonical skill not found: ${canonicalSkill}`);
 }
 
-for (const link of symlinks) {
-  let resolved = null;
-  try {
-    resolved = realpathSync(join(ROOT, link));
-    if (resolved !== canonicalReal) {
-      const content = readFileSync(resolved, 'utf-8').trim();
-      if (content.startsWith('..') && content.split('\n').length === 1) {
-        resolved = realpathSync(join(dirname(join(ROOT, link)), content));
-      }
-    }
-  } catch {
-    resolved = null;
-  }
-  if (resolved === null) {
-    fail(`Symlink missing: ${link}`);
-    continue;
-  }
-  if (resolved === canonicalReal) {
-    pass(`${link} → canonical skill`);
-  } else if (canonicalContent !== null && readFile(link) === canonicalContent) {
-    pass(`${link} is a materialized copy of canonical skill`);
-  } else {
-    fail(`${link} resolves to ${resolved}, expected ${canonicalReal} or byte-identical canonical skill copy`);
-  }
-}
-
-if (
-  /Codex/i.test(canonicalContent ?? '') &&
-  /`codex`/.test(canonicalContent ?? '') &&
-  /`codex exec/.test(canonicalContent ?? '') &&
-  /prompt/i.test(canonicalContent ?? '') &&
-  /\/career-ops/.test(canonicalContent ?? '')
-) {
-  pass('career-ops skill router documents the Codex invocation model');
-} else {
-  fail('career-ops skill router is missing Codex invocation guidance');
-}
-
-console.log('\n12c. Codex documentation guidance');
+console.log('\n12c. Claude Code documentation guidance');
 
 const readmeDoc = readFile('README.md');
 // The fork supports Claude Code only (SPEC.md 3.2): the README says so and
@@ -7110,502 +6832,13 @@ if (/Claude Code/.test(readmeDoc) && /^claude\s/m.test(readmeDoc) && /Claude Cod
   fail('README is missing the Claude Code usage guidance');
 }
 
-const setupDoc = readFile('docs/SETUP.md');
-if (
-  /codex exec/.test(setupDoc) &&
-  /Codex/i.test(setupDoc) &&
-  /(slash commands?.*not guaranteed|plain language|prompt)/i.test(setupDoc)
-) {
-  pass('docs/SETUP.md explains the Codex invocation model');
-} else {
-  fail('docs/SETUP.md is missing Codex invocation guidance');
-}
-
-const agentsDoc = readFile('AGENTS.md');
-if (
-  /CODEX\.md/.test(agentsDoc) &&
-  /codex exec/.test(agentsDoc) &&
-  /Codex/i.test(agentsDoc) &&
-  /(slash commands?.*not guaranteed|prompt|\/career-ops.*unavailable)/i.test(agentsDoc)
-) {
-  pass('AGENTS.md includes CODEX.md and Codex-specific command guidance');
-} else {
-  fail('AGENTS.md is missing CODEX.md or Codex command guidance');
-}
-
-console.log('\n12a. Skill entrypoint materialization');
-
-{
-  const fixtureRoot = mkdtempSync(join(tmpdir(), 'career-ops-skills-'));
-  try {
-    const canonicalDir = join(fixtureRoot, '.agents', 'skills', 'career-ops');
-    const claudeDir = join(fixtureRoot, '.claude', 'skills', 'career-ops');
-    const opencodeDir = join(fixtureRoot, '.opencode', 'skills', 'career-ops');
-    mkdirSync(canonicalDir, { recursive: true });
-    mkdirSync(claudeDir, { recursive: true });
-    mkdirSync(opencodeDir, { recursive: true });
-
-    const fixtureSkill = '---\nname: career-ops\n---\n\n# canonical skill\n';
-    const pointer = '../../../.agents/skills/career-ops/SKILL.md';
-    writeFileSync(join(canonicalDir, 'SKILL.md'), fixtureSkill);
-    writeFileSync(join(claudeDir, 'SKILL.md'), pointer);
-    writeFileSync(join(opencodeDir, 'SKILL.md'), pointer);
-
-    const skills = await import(pathToFileURL(join(ROOT, 'scaffolder/bin/skill-entrypoints.mjs')).href);
-    const materialized = skills.materializeSkillEntrypoints(fixtureRoot).sort();
-    const expected = [
-      '.claude/skills/career-ops/SKILL.md',
-      '.opencode/skills/career-ops/SKILL.md',
-    ];
-
-    if (JSON.stringify(materialized) === JSON.stringify(expected)) {
-      pass('update-system materializes pointer skill entrypoints');
-    } else {
-      fail(`unexpected materialized skill entrypoints: ${JSON.stringify(materialized)}`);
-    }
-
-    const claudeSkill = readFileSync(join(claudeDir, 'SKILL.md'), 'utf-8');
-    const opencodeSkill = readFileSync(join(opencodeDir, 'SKILL.md'), 'utf-8');
-    if (claudeSkill === fixtureSkill && opencodeSkill === fixtureSkill) {
-      pass('materialized skill entrypoints match canonical content');
-    } else {
-      fail('materialized skill entrypoints do not match canonical content');
-    }
-  } catch (e) {
-    fail(`skill entrypoint materialization test crashed: ${e.message}`);
-  } finally {
-    rmSync(fixtureRoot, { recursive: true, force: true });
-  }
-}
-
-// Every CLI skill entrypoint tracked in git MUST also be listed in
-// SKILL_ENTRYPOINTS, because that array is the only thing that materializes
-// these files on filesystems without symlink support. A tracked-but-unlisted
-// entrypoint checks out as a pointer text file on Windows and stays that way:
-// the user opens their CLI and the skill is the literal string
-// "../../../.agents/skills/career-ops/SKILL.md". That is bug #1051, and it hit
-// a second time because Kimi shipped after the list was written and nobody
-// compared the two. Adding a CLI touches five wiring points; this asserts the
-// sixth instead of trusting a reviewer to remember it.
-console.log('\n12a-bis. Every tracked skill entrypoint is materializable');
-
-{
-  try {
-    const tracked = execSync('git ls-files', { cwd: ROOT, encoding: 'utf-8' })
-      .split('\n')
-      .filter((p) => /^\.[^/]+\/skills\/career-ops\/SKILL\.md$/.test(p))
-      .filter((p) => !p.startsWith('.agents/')) // the canonical target, not an entrypoint
-      .sort();
-
-    // An empty list means git could not see the tree, not that there is nothing
-    // to check (#2240): a guard that cannot look must never pass.
-    if (tracked.length === 0) {
-      fail('git ls-files returned no skill entrypoints — this check could not inspect anything');
-    } else {
-      const skills = await import(pathToFileURL(join(ROOT, 'scaffolder/bin/skill-entrypoints.mjs')).href);
-      const listed = new Set(skills.SKILL_ENTRYPOINTS.map((e) => e.path));
-      const unlisted = tracked.filter((p) => !listed.has(p));
-
-      if (unlisted.length === 0) {
-        pass(`all ${tracked.length} tracked skill entrypoints are in SKILL_ENTRYPOINTS`);
-      } else {
-        fail(`skill entrypoint(s) tracked in git but missing from SKILL_ENTRYPOINTS — broken on filesystems without symlinks: ${unlisted.join(', ')}`);
-      }
-    }
-  } catch (e) {
-    fail(`skill entrypoint coverage check crashed: ${e.message}`);
-  }
-}
-
-console.log('\n12b. Skill entrypoint bootstrap (npx / old releases)');
-
-{
-  const fixtureRoot = mkdtempSync(join(tmpdir(), 'career-ops-ensure-skills-'));
-  try {
-    const canonicalDir = join(fixtureRoot, '.agents', 'skills', 'career-ops');
-    const claudeDir = join(fixtureRoot, '.claude', 'skills', 'career-ops');
-    mkdirSync(canonicalDir, { recursive: true });
-    mkdirSync(claudeDir, { recursive: true });
-
-    const fixtureSkill = '---\nname: career-ops\n---\n\n# canonical skill\n';
-    const pointer = '../../../.agents/skills/career-ops/SKILL.md';
-    writeFileSync(join(canonicalDir, 'SKILL.md'), fixtureSkill);
-    writeFileSync(join(claudeDir, 'SKILL.md'), pointer);
-
-    const skills = await import(pathToFileURL(join(ROOT, 'scaffolder/bin/skill-entrypoints.mjs')).href);
-    const touched = skills.ensureSkillEntrypoints(fixtureRoot).sort();
-    // Derived from SKILL_ENTRYPOINTS, never hand-listed. A literal array here is
-    // a second copy of the same list, and a second copy goes stale: adding Kimi
-    // to the registry turned this assertion red for the correct behaviour, which
-    // teaches whoever hits it to edit the expectation without reading it. The
-    // assertion that matters is "bootstraps everything in the registry", and
-    // that one holds whatever the registry contains.
-    const expectedTouched = skills.SKILL_ENTRYPOINTS.map((e) => e.path).sort();
-
-    if (JSON.stringify(touched) === JSON.stringify(expectedTouched)) {
-      pass('ensureSkillEntrypoints bootstraps all CLI skill entrypoints');
-    } else {
-      fail(`unexpected bootstrapped skill entrypoints: ${JSON.stringify(touched)}`);
-    }
-
-    const grokSkill = readFileSync(join(fixtureRoot, '.grok', 'skills', 'career-ops', 'SKILL.md'), 'utf-8');
-    const claudeSkill = readFileSync(join(claudeDir, 'SKILL.md'), 'utf-8');
-    if (grokSkill === fixtureSkill && claudeSkill === fixtureSkill) {
-      pass('ensureSkillEntrypoints materializes canonical skill content');
-    } else {
-      fail('bootstrapped skill entrypoints do not match canonical content');
-    }
-  } catch (e) {
-    fail(`skill entrypoint bootstrap test crashed: ${e.message}`);
-  } finally {
-    rmSync(fixtureRoot, { recursive: true, force: true });
-  }
-}
-
-{
-  // Regression guard for #1245: the self-reexec checkout derives its file list
-  // from update-system.mjs's static relative imports, so the parser must catch
-  // every relative import/export form and ignore bare/package specifiers.
-  try {
-    const updater = await import(pathToFileURL(join(ROOT, 'update-system.mjs')).href);
-    const sample = [
-      "import { a } from './scaffolder/bin/skill-entrypoints.mjs';",
-      'import b from "../lib/helper.mjs";',
-      "export { c } from './sibling.mjs';",
-      "import './side-effect.mjs';",
-      "import { readFileSync } from 'node:fs';",
-      "import yaml from 'js-yaml';",
-    ].join('\n');
-    const specs = updater.relativeImportSpecifiers(sample).sort();
-    const expected = [
-      '../lib/helper.mjs',
-      './scaffolder/bin/skill-entrypoints.mjs',
-      './sibling.mjs',
-      './side-effect.mjs',
-    ];
-    if (JSON.stringify(specs) === JSON.stringify(expected)) {
-      pass('relativeImportSpecifiers extracts relative imports, ignores bare/package (#1245)');
-    } else {
-      fail(`relativeImportSpecifiers mismatch: got ${JSON.stringify(specs)}`);
-    }
-
-    // The #1706 "update-system.mjs must be SELF-LOADING" source check used to
-    // live here. It now lives in tests/main-guard-convention.test.mjs, beside
-    // the exemption that depends on it, and it is auto-discovered from here so
-    // nothing is lost by the move.
-    //
-    // Moved rather than duplicated because the copy that stood here was WEAKER,
-    // and silently so: its single-line `from '...'` match walked past a
-    // multiline specifier list and past a comment between the keyword and the
-    // specifier (`import /* c */ './x.mjs';`) — both real static relative
-    // imports that break the old→new re-exec. Two checks for one rule at two
-    // strengths is how a guard rots; the surviving one carries a self-test
-    // pinning ten caught spellings against five allowed ones.
-    //
-    // The behavioural backstop below is untouched and remains definitive: it
-    // imports update-system.mjs standalone, so it catches any spelling at all.
-  } catch (e) {
-    fail(`relativeImportSpecifiers test crashed: ${e.message}`);
-  }
-}
-
-{
-  // #1706 end-to-end regression: reproduce the old→new re-exec by checking out
-  // ONLY update-system.mjs into an otherwise-empty dir (no scaffolder/) and
-  // importing it. Before the lazy-import fix this threw ERR_MODULE_NOT_FOUND at
-  // module load; it must now load standalone.
-  const isolatedRoot = mkdtempSync(join(tmpdir(), 'career-ops-updater-standalone-'));
-  try {
-    const updaterSource = readFileSync(join(ROOT, 'update-system.mjs'), 'utf-8');
-    const isolatedUpdater = join(isolatedRoot, 'update-system.mjs');
-    writeFileSync(isolatedUpdater, updaterSource);
-    try {
-      await import(pathToFileURL(isolatedUpdater).href);
-      pass('update-system.mjs imports standalone without scaffolder/ present (#1706)');
-    } catch (err) {
-      fail(`update-system.mjs failed to import standalone (old→new re-exec crash, #1706): ${err.code || err.message}`);
-    }
-  } finally {
-    rmSync(isolatedRoot, { recursive: true, force: true });
-  }
-}
-
-{
-  const fixtureRoot = mkdtempSync(join(tmpdir(), 'career-ops-skills-unreadable-'));
-  try {
-    const canonicalDir = join(fixtureRoot, '.agents', 'skills', 'career-ops');
-    const claudeDir = join(fixtureRoot, '.claude', 'skills', 'career-ops');
-    mkdirSync(canonicalDir, { recursive: true });
-    mkdirSync(claudeDir, { recursive: true });
-
-    const pointer = '../../../.agents/skills/career-ops/SKILL.md';
-    mkdirSync(join(canonicalDir, 'SKILL.md'));
-    writeFileSync(join(claudeDir, 'SKILL.md'), pointer);
-
-    const skills = await import(pathToFileURL(join(ROOT, 'scaffolder/bin/skill-entrypoints.mjs')).href);
-    const materialized = skills.materializeSkillEntrypoints(fixtureRoot);
-    const claudeSkill = readFileSync(join(claudeDir, 'SKILL.md'), 'utf-8');
-    if (materialized.length === 0 && claudeSkill === pointer) {
-      pass('update-system skips skill materialization when canonical entrypoint is unreadable');
-    } else {
-      fail(`unreadable canonical skill unexpectedly materialized: ${JSON.stringify(materialized)}`);
-    }
-  } catch (e) {
-    fail(`unreadable canonical skill test crashed: ${e.message}`);
-  } finally {
-    rmSync(fixtureRoot, { recursive: true, force: true });
-  }
-}
-
-{
-  const fixtureRoot = mkdtempSync(join(tmpdir(), 'career-ops-skills-entry-dir-'));
-  try {
-    const canonicalDir = join(fixtureRoot, '.agents', 'skills', 'career-ops');
-    const claudeDir = join(fixtureRoot, '.claude', 'skills', 'career-ops');
-    const opencodeDir = join(fixtureRoot, '.opencode', 'skills', 'career-ops');
-    mkdirSync(canonicalDir, { recursive: true });
-    mkdirSync(claudeDir, { recursive: true });
-    mkdirSync(opencodeDir, { recursive: true });
-
-    const fixtureSkill = '---\nname: career-ops\n---\n\n# canonical skill\n';
-    const pointer = '../../../.agents/skills/career-ops/SKILL.md';
-    writeFileSync(join(canonicalDir, 'SKILL.md'), fixtureSkill);
-    mkdirSync(join(claudeDir, 'SKILL.md'));
-    writeFileSync(join(opencodeDir, 'SKILL.md'), pointer);
-
-    const skills = await import(pathToFileURL(join(ROOT, 'scaffolder/bin/skill-entrypoints.mjs')).href);
-    const materialized = skills.materializeSkillEntrypoints(fixtureRoot);
-    const opencodeSkill = readFileSync(join(opencodeDir, 'SKILL.md'), 'utf-8');
-    if (JSON.stringify(materialized) === JSON.stringify(['.opencode/skills/career-ops/SKILL.md']) && opencodeSkill === fixtureSkill) {
-      pass('update-system skips non-file skill entrypoints while materializing valid pointers');
-    } else {
-      fail(`non-file skill entrypoint handling was unexpected: ${JSON.stringify(materialized)}`);
-    }
-  } catch (e) {
-    fail(`non-file skill entrypoint test crashed: ${e.message}`);
-  } finally {
-    rmSync(fixtureRoot, { recursive: true, force: true });
-  }
-}
-
-console.log('\n12c. Materialized skill index mode');
-
-{
-  const fixtureRoot = mkdtempSync(join(tmpdir(), 'career-ops-skill-git-'));
-  // The fixture stages the very paths career-ops legitimately tracks - .agents/,
-  // .claude/, .opencode/ - and those are exactly the paths agent-tool users
-  // exclude machine-wide. A fresh `git init` still honours the ambient global
-  // and system config, so on such a machine `git add` refused the path and the
-  // whole block aborted into a single "crashed" failure that read like a
-  // regression in materializeSkillEntrypoints (#2269).
-  //
-  // Fix the class rather than the instance: pin the global and system config to
-  // an empty file outside the fixture work tree, so nothing ambient reaches it -
-  // init.templateDir and core.autocrlf as much as core.excludesFile. Same shape
-  // as the GIT_CONFIG_GLOBAL pin in upgrade-tests.mjs. Empty on purpose; the
-  // fixture's own `git config` calls below set everything it actually needs.
-  const gitConfigRoot = mkdtempSync(join(tmpdir(), 'career-ops-skill-gitcfg-'));
-  const gitConfigPath = join(gitConfigRoot, 'gitconfig');
-  writeFileSync(gitConfigPath, '');
-  // That pin alone does NOT close the ignore path. When core.excludesFile is
-  // unset git falls back to the XDG default ~/.config/git/ignore, and that
-  // fallback is independent of which config file it just read - so the excludes
-  // path has to be pointed somewhere inert explicitly, below. An empty real file
-  // rather than /dev/null, which git rejects as an excludes source on Windows
-  // ("fatal: cannot use nul as an exclude file"); empty-string semantics work on
-  // both platforms tested but are not worth depending on.
-  const emptyExcludes = join(gitConfigRoot, 'empty-excludes');
-  writeFileSync(emptyExcludes, '');
-  const gitEnv = hermeticGitEnv(gitConfigPath);
-  const gitRun = (args, opts = {}) => execFileSync('git', args, {
-    cwd: fixtureRoot,
-    encoding: 'utf-8',
-    timeout: 30000,
-    env: gitEnv,
-    ...opts,
-  }).trim();
-  const gitRaw = (args) => execFileSync('git', args, {
-    cwd: fixtureRoot,
-    encoding: 'utf-8',
-    timeout: 30000,
-    env: gitEnv,
-  });
-
-  try {
-    const canonicalDir = join(fixtureRoot, '.agents', 'skills', 'career-ops');
-    const claudeDir = join(fixtureRoot, '.claude', 'skills', 'career-ops');
-    const opencodeDir = join(fixtureRoot, '.opencode', 'skills', 'career-ops');
-    mkdirSync(canonicalDir, { recursive: true });
-    mkdirSync(claudeDir, { recursive: true });
-    mkdirSync(opencodeDir, { recursive: true });
-
-    const fixtureSkill = '---\nname: career-ops\n---\n\n# canonical skill\n';
-    const pointer = '../../../.agents/skills/career-ops/SKILL.md';
-
-    gitRun(['init']);
-    // core.excludesFile is only the GLOBAL layer. `git init` also seeds
-    // .git/info/exclude from a template, which GIT_TEMPLATE_DIR can still point
-    // at an ambient one, so empty that layer too rather than assume it is inert.
-    //
-    // mkdirSync first, because the same GIT_TEMPLATE_DIR that makes this write
-    // necessary is what can make its parent absent: pointed at an empty or a
-    // non-existent directory, `git init` still succeeds but seeds no .git/info,
-    // and the bare write threw ENOENT before the fixture ran a single assertion
-    // (santifer, reviewing #2567). Assuming the default template here would be
-    // the same ambient-environment dependency this block exists to remove.
-    const excludePath = join(fixtureRoot, '.git', 'info', 'exclude');
-    mkdirSync(dirname(excludePath), { recursive: true });
-    writeFileSync(excludePath, '');
-    gitRun(['config', 'core.symlinks', 'false']);
-    gitRun(['config', 'core.excludesFile', emptyExcludes]);
-    gitRun(['config', 'user.email', 'test@example.com']);
-    gitRun(['config', 'user.name', 'Test User']);
-
-    writeFileSync(join(canonicalDir, 'SKILL.md'), fixtureSkill);
-    writeFileSync(join(claudeDir, 'SKILL.md'), pointer);
-    writeFileSync(join(opencodeDir, 'SKILL.md'), pointer);
-    // Guard the isolation itself, as a first-class assertion. If the pin above
-    // ever stops taking effect the fixture cannot stage its own input, and every
-    // assertion below collapses into a single "crashed" carrying git's ignore
-    // message - which reads as a regression in materializeSkillEntrypoints
-    // rather than an environment leak. Name the real cause here instead.
-    //
-    // Both shapes have to be caught, because git reports them differently: an
-    // ignored path named EXPLICITLY makes `git add` exit non-zero, while an
-    // ignored path merely covered by a directory pathspec (the `.claude/skills/`
-    // add further down) is skipped silently and exits 0. So run the add and the
-    // index check together, and let one assertion speak for both.
-    let canonicalStaged = '';
-    try {
-      gitRun(['add', '--', '.agents/skills/career-ops/SKILL.md']);
-      canonicalStaged = gitRun(['ls-files', '--', '.agents/skills/career-ops/SKILL.md']);
-    } catch {
-      // Left empty: the assertion below is the report.
-    }
-    if (canonicalStaged) {
-      pass('skill index-mode fixture is isolated from ambient git ignore rules (#2269)');
-    } else {
-      fail('skill index-mode fixture: canonical entrypoint did not stage - ambient git config reached the fixture (#2269)');
-      fail('materialized skill entrypoints stage as regular files, not symlink blobs (skipped: fixture not staged)');
-      fail('materialized skill blobs contain canonical skill content (skipped: fixture not staged)');
-      const reported = new Error('fixture staging precondition failed');
-      reported.alreadyReported = true;
-      throw reported;
-    }
-
-    const pointerBlob = gitRun(['hash-object', '-w', '--stdin'], { input: pointer });
-    gitRun(['update-index', '--add', '--cacheinfo', `120000,${pointerBlob},.claude/skills/career-ops/SKILL.md`]);
-    gitRun(['update-index', '--add', '--cacheinfo', `120000,${pointerBlob},.opencode/skills/career-ops/SKILL.md`]);
-
-    const updater = await import(pathToFileURL(join(ROOT, 'update-system.mjs')).href);
-    const skills = await import(pathToFileURL(join(ROOT, 'scaffolder/bin/skill-entrypoints.mjs')).href);
-    const materialized = skills.materializeSkillEntrypoints(fixtureRoot);
-    updater.prepareMaterializedSkillEntrypointsForStage(materialized, fixtureRoot);
-    gitRun(['add', '--', '.claude/skills/', '.opencode/skills/']);
-
-    const claudeIndex = gitRun(['ls-files', '-s', '--', '.claude/skills/career-ops/SKILL.md']);
-    const opencodeIndex = gitRun(['ls-files', '-s', '--', '.opencode/skills/career-ops/SKILL.md']);
-    if (claudeIndex.startsWith('100644 ') && opencodeIndex.startsWith('100644 ')) {
-      pass('materialized skill entrypoints stage as regular files, not symlink blobs');
-    } else {
-      fail(`materialized skill entrypoints staged with wrong modes: ${JSON.stringify([claudeIndex, opencodeIndex])}`);
-    }
-
-    const claudeBlob = gitRaw(['show', ':.claude/skills/career-ops/SKILL.md']);
-    const opencodeBlob = gitRaw(['show', ':.opencode/skills/career-ops/SKILL.md']);
-    if (claudeBlob === fixtureSkill && opencodeBlob === fixtureSkill) {
-      pass('materialized skill blobs contain canonical skill content');
-    } else {
-      fail('materialized skill blobs do not contain canonical skill content');
-    }
-  } catch (e) {
-    // The staging-precondition branch already reported all three assertions
-    // individually; re-reporting here would double-count and re-bury the cause.
-    if (!e?.alreadyReported) fail(`skill entrypoint index-mode test crashed: ${e.message}`);
-  } finally {
-    rmSync(fixtureRoot, { recursive: true, force: true });
-    rmSync(gitConfigRoot, { recursive: true, force: true });
-  }
-}
-
-// The block above pins the file layers and the runtime layer, but it can only
-// prove the pin holds against whatever the machine running it happens to carry.
-// On a clean machine an injected-config leak stays invisible, and the pin could
-// be removed with every assertion still green - which is how this one got in.
-// So inject the leak on purpose and assert the pin absorbs it (CodeRabbit,
-// reviewing #2567).
-{
-  const fixtureRoot = mkdtempSync(join(tmpdir(), 'career-ops-skill-gitinject-'));
-  const gitConfigRoot = mkdtempSync(join(tmpdir(), 'career-ops-skill-gitinject-cfg-'));
-  try {
-    const gitConfigPath = join(gitConfigRoot, 'gitconfig');
-    writeFileSync(gitConfigPath, '');
-    const emptyExcludes = join(gitConfigRoot, 'empty-excludes');
-    writeFileSync(emptyExcludes, '');
-    // The ignore rule an agent-tool user plausibly carries machine-wide, in the
-    // one layer GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM do not cover.
-    const ambientExcludes = join(gitConfigRoot, 'ambient-ignore');
-    writeFileSync(ambientExcludes, '.agents/\n');
-    // Through hermeticGitEnv, not around it: this asserts the production
-    // construction absorbs the injection, so dropping the pin there turns this
-    // red rather than leaving it green on a clean machine.
-    const gitEnv = hermeticGitEnv(gitConfigPath, {
-      ...process.env,
-      GIT_CONFIG_COUNT: '1',
-      GIT_CONFIG_KEY_0: 'core.excludesFile',
-      GIT_CONFIG_VALUE_0: ambientExcludes,
-    });
-    const gitRun = (args) => execFileSync('git', args, {
-      cwd: fixtureRoot,
-      encoding: 'utf-8',
-      timeout: 30000,
-      env: gitEnv,
-    }).trim();
-
-    const canonicalDir = join(fixtureRoot, '.agents', 'skills', 'career-ops');
-    mkdirSync(canonicalDir, { recursive: true });
-    gitRun(['init']);
-    const excludePath = join(fixtureRoot, '.git', 'info', 'exclude');
-    mkdirSync(dirname(excludePath), { recursive: true });
-    writeFileSync(excludePath, '');
-    gitRun(['config', 'core.excludesFile', emptyExcludes]);
-    writeFileSync(join(canonicalDir, 'SKILL.md'), '---\nname: career-ops\n---\n');
-
-    let staged = '';
-    // Keep the git failure: an unrelated breakage here (git missing from PATH,
-    // a corrupt fixture index) leaves `staged` empty and is then reported as
-    // "the runtime config layer is unpinned", which sends the reader to
-    // GIT_CONFIG_* pinning for a problem that has nothing to do with it. The
-    // assertion below is still the verdict; this only says why it failed.
-    let stagingError = '';
-    try {
-      gitRun(['add', '--', '.agents/skills/career-ops/SKILL.md']);
-      staged = gitRun(['ls-files', '--', '.agents/skills/career-ops/SKILL.md']);
-    } catch (e) {
-      stagingError = e.message;
-    }
-    if (staged) {
-      pass('injected GIT_CONFIG_* core.excludesFile cannot reach the skill fixture (#2567)');
-    } else if (stagingError) {
-      fail(`injected GIT_CONFIG_* isolation check could not stage the fixture: ${stagingError}`);
-    } else {
-      fail('injected GIT_CONFIG_* core.excludesFile reached the fixture - the runtime config layer is unpinned (#2567)');
-    }
-  } catch (e) {
-    fail(`injected git-config isolation test crashed: ${e.message}`);
-  } finally {
-    rmSync(fixtureRoot, { recursive: true, force: true });
-    rmSync(gitConfigRoot, { recursive: true, force: true });
-  }
-}
-
 // ── 14. VERSION FILE ─────────────────────────────────────────────
 
 console.log('\n14. Version file');
 
 if (fileExists('VERSION')) {
   // VERSION may carry a release-please marker, e.g. "1.9.0 # x-release-please-version".
-  // Validate the first whitespace-delimited token, mirroring update-system.mjs parseVersionFile().
+  // Validate the first whitespace-delimited token, the VERSION file format release-please writes.
   const version = readFile('VERSION').trim().split(/\s+/)[0];
   if (/^\d+\.\d+\.\d+$/.test(version)) {
     pass(`VERSION is valid semver: ${version}`);
@@ -10599,182 +9832,6 @@ try {
     fail(`unsafe range guard failed: error=${unsafeRangeError?.message}, leaked=${unsafeRangeLeaked}`);
   }
   rmSync(unsafeRangeTmp, { recursive: true, force: true });
-
-  const evaluatorSources = ['ollama-eval.mjs', 'openai-eval.mjs', 'gemini-eval.mjs', 'openrouter-runner.mjs']
-    .map(name => [name, readFile(name)]);
-  const unmigratedEvaluators = evaluatorSources
-    .filter(([, source]) => !/reservedNumbers\s*=\s*await\s+reserveReportNumbers\s*\(/.test(source)
-      || !/await\s+releaseReportNumbers\s*\(\s*reservedNumbers\b/.test(source)
-      || /function\s+nextReport(?:Number|Num)\s*\(/.test(source))
-    .map(([name]) => name);
-  if (unmigratedEvaluators.length === 0) {
-    pass('all headless evaluators use the shared atomic report allocator');
-  } else {
-    fail(`headless evaluators still carry private max+1 allocators: ${unmigratedEvaluators.join(', ')}`);
-  }
-
-  // Same family, second contract (#3707): every headless evaluator persists its
-  // evaluation as a TSV in batch/tracker-additions, so merge-tracker.mjs applies
-  // dedup, status validation, report-link normalization and the tracker lock
-  // (AGENTS.md Pipeline Integrity rule 1). openai-eval/ollama-eval used to print
-  // a markdown row for the user to paste into data/applications.md instead --
-  // 8 cells against a 9-column tracker, which every reader's width guard drops
-  // as a non-data line, so the pasted evaluation vanished and verify-pipeline
-  // still reported the tracker clean.
-  //
-  // The sink is expressed as the #3706 contract rather than as per-file patterns:
-  // a write call whose payload interpolates a header constant, a newline, then
-  // the row. Patterns naming each file's own variables went stale the moment
-  // #3706 rewrote gemini-eval and openrouter-runner to emit TSV_ADDITION_HEADER
-  // -- they reported "bypasses the tracker-addition path" against a tree where
-  // both persist correctly, a false alarm on files this PR does not own. Keying
-  // on the shared contract means the check tracks the contract, not the spelling.
-  // Presence of the string "tracker-additions" is deliberately NOT the test: a
-  // comment satisfies that.
-  const writeSinkRe = /write(?:File|FileSync)\([\s\S]{0,200}?\$\{[A-Za-z0-9_]*(?:HEADER|Header)\}\\n\$\{([^}]+)\}/;
-  // ...and the payload has to BE the row. Accepting any identifier let a mutation
-  // that replaced `${trackerFields.join('\t')}` with `${placeholder}` pass, which
-  // is the failure-wearing-a-pass this check exists to stop. Either the join is
-  // inline, or the named variable's own definition is tab-separated
-  // (openrouter-runner builds `tsvLine` a line earlier).
-  // Comments are stripped first: a commented-out writeFileSync block still
-  // matches the raw source, so the harness would pass while the evaluator wrote
-  // nothing -- the failure-wearing-a-pass this check exists to stop. Only
-  // whole-line comments are removed, deliberately: a naive `//`-to-end-of-line
-  // strip also eats the `//` inside every `https://` string literal, which is
-  // its own way of misreading the file. Commented-out code is whole lines.
-  const executable = (source) => source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .filter(line => !/^\s*\/\//.test(line))
-    .join('\n');
-  const writesTheRow = (rawSource) => {
-    const source = executable(rawSource);
-    const sink = source.match(writeSinkRe);
-    if (!sink) return false;
-    const payload = sink[1].trim();
-    if (/\.join\('\\t'\)$/.test(payload)) return true;
-    const defined = source.match(new RegExp(`const\\s+${payload.replace(/[^A-Za-z0-9_]/g, '')}\\s*=[^;]*`));
-    return Boolean(defined && defined[0].includes('\\t'));
-  };
-  const pastedRowRe = /Tracker entry \(add to|console\.log\(`[^`]*\|\s*\$\{num\}\s*\|/;
-  const unpersistedEvaluators = evaluatorSources
-    .filter(([, source]) => !writesTheRow(source) || pastedRowRe.test(source))
-    .map(([name]) => name);
-  if (unpersistedEvaluators.length === 0) {
-    pass('all headless evaluators write their addition to disk, none dictates a hand-pasted row');
-  } else {
-    fail(`headless evaluators bypass the tracker-addition path: ${unpersistedEvaluators.join(', ')}`);
-  }
-
-  // The addition itself must carry all nine columns in the TSV contract's order
-  // (status BEFORE score) -- the two evaluators converted in #3707 build the row
-  // from a literal, so pin the field list rather than only the directory.
-  const nineFieldRe = new RegExp([
-    'const trackerFields = \\[',
-    "String\\(parseInt\\(num, 10\\)\\),",
-    'today,',
-    'tsvSafe\\(company\\),',
-    'tsvSafe\\(role\\),',
-    "'Evaluated',",
-    'normalizedTrackerScore\\(score\\),',
-    "'❌',",
-    '`\\[\\$\\{num\\}\\]\\(reports/\\$\\{filename\\}\\)`,',
-    'tsvSafe\\(`[^`]*\\$\\{modelName\\}[^`]*`\\),',
-    '\\];',
-  ].join('\\s*'));
-  const wrongShape = ['openai-eval.mjs', 'ollama-eval.mjs']
-    .filter(name => !nineFieldRe.test(readFile(name)));
-  if (wrongShape.length === 0) {
-    pass('openai-eval and ollama-eval build the nine-column addition with status before score');
-  } else {
-    fail(`tracker addition fields wrong or reordered in: ${wrongShape.join(', ')}`);
-  }
-
-  // Same family, second contract (#3795): every headless evaluator writes
-  // `**URL:**` into its report header, per AGENTS.md Pipeline Integrity rule 3.
-  // The report is where the posting URL survives the posting, and it is the only
-  // place merge-tracker.mjs's resolveReportUrl() looks -- a report without the
-  // line yields `no-url`, so the row can never be backfilled and stays outside
-  // the deterministic URL dedup key, the tier merge-tracker tries FIRST and the
-  // one that can prove two same-title rows are different openings.
-  //
-  // Two halves, because the line is worthless without a value to put in it:
-  // the header must be written, AND the evaluator must have somewhere to
-  // receive a posting URL from. Absent one, `(pasted)` is the honest value and
-  // keeps the field present; normalizeUrl derives no key from it, so it cannot
-  // hand every pasted row the same key.
-  // Both halves run over comment-stripped source (`executable`, above), and the
-  // header must carry an INTERPOLATED value rather than a bare literal: a
-  // comment mentioning `**URL:**`, or a hardcoded line with nothing substituted
-  // into it, would otherwise satisfy a raw-source scan while the report shipped
-  // no URL -- a failure wearing a pass. Every writer today interpolates
-  // (`**URL:** ${postingUrl || '(pasted)'}`, `**URL:** ${url}`), so requiring it
-  // ties the header to a value reaching the report write path.
-  const urlHeaderRe  = /\*\*URL:\*\*[^\n]*\$\{/;
-  const urlSourceRe  = /--posting-url|\bpostingUrl\b|\$\{input \|\| '\(pasted\)'\}/;
-  // Empty since #3797 landed the header in openai-eval.mjs and ollama-eval.mjs,
-  // the two files it exempted. The list is asserted to be EXACTLY the files still
-  // missing the header, so leaving the names here would fail as a stale
-  // exemption -- which is what that guard is for. Kept rather than deleted: the
-  // next evaluator added without a URL header has somewhere to be named
-  // deliberately, instead of the check being quietly weakened to accommodate it.
-  const pendingUrlHeader = [];
-  const missingUrlHeader = evaluatorSources
-    .map(([name, source]) => [name, executable(source)])
-    .filter(([, source]) => !urlHeaderRe.test(source) || !urlSourceRe.test(source))
-    .map(([name]) => name);
-  const staleExemptions = pendingUrlHeader.filter(name => !missingUrlHeader.includes(name));
-  const unexemptedGaps  = missingUrlHeader.filter(name => !pendingUrlHeader.includes(name));
-  if (unexemptedGaps.length > 0) {
-    fail(`headless evaluators write a report with no **URL:** header, so their rows can never reach the URL dedup key: ${unexemptedGaps.join(', ')}`);
-  } else if (staleExemptions.length > 0) {
-    fail(`stale #3797 exemption — these now carry the **URL:** header, remove them from pendingUrlHeader: ${staleExemptions.join(', ')}`);
-  } else {
-    pass('every headless evaluator outside the #3797 exemption writes **URL:** and takes a posting URL');
-  }
-
-  // Same family, third contract (#3796): the tracker-addition helpers are
-  // imported, never redefined. Four evaluators carried private copies of
-  // `tsvSafe` / `normalizedTrackerScore` and they drifted -- gemini-eval.mjs's
-  // concatenated instead of parsing, so `SCORE: 4.2 (strong fit)` produced
-  // `4.2 (strong fit)/5`, which is neither a score nor a sentinel and is the
-  // undecidable cell merge-tracker.mjs refuses outright. The evaluation was
-  // skipped wholly while the sibling copy had been immune all along.
-  //
-  // tests/evaluator-score-cell.test.mjs asserts the helpers exist exactly once;
-  // this asserts the family reaches that one definition, which is the half a
-  // fifth evaluator can fail without redefining anything -- by hand-rolling a
-  // score cell inline instead, which is exactly what openrouter-runner.mjs did:
-  // it never held a copy, so a copy-scan never saw it, while it wrote
-  // `${value.toFixed(1)}/5` from a numeric prefix that discarded the
-  // denominator, and the empty string when nothing parsed.
-  //
-  // USE, not merely import: an evaluator can import an unrelated helper from the
-  // module and still build its score cell by hand, which would pass an
-  // import-only check while the behaviour this contract exists to protect had
-  // drifted again. Both halves are required -- the import proves it reaches the
-  // shared definition, the call proves it is the definition actually used.
-  const ADDITION_HELPERS = './lib/tracker-addition.mjs';
-  const helperImportRe = /from\s+'\.\/lib\/tracker-addition\.mjs'/;
-  const helperUseRe    = /\bnormalizedTrackerScore\s*\(/;
-  // Empty, and it should stay that way. #3797 landed while this branch was open
-  // and re-added copies to openai-eval.mjs and ollama-eval.mjs; both were
-  // consolidated on the merge, which is the exemption being spent rather than
-  // renewed. A new name here needs a reason with an issue number attached.
-  const pendingHelperImport = [];
-  const missingHelperImport = evaluatorSources
-    .filter(([, source]) => !helperImportRe.test(source) || !helperUseRe.test(source))
-    .map(([name]) => name);
-  const staleHelperExemptions = pendingHelperImport.filter(name => !missingHelperImport.includes(name));
-  const unexemptedHelperGaps  = missingHelperImport.filter(name => !pendingHelperImport.includes(name));
-  if (unexemptedHelperGaps.length > 0) {
-    fail(`headless evaluators build their tracker-addition cells without importing AND calling ${ADDITION_HELPERS}'s normalizedTrackerScore, the drift #3796 consolidated: ${unexemptedHelperGaps.join(', ')}`);
-  } else if (staleHelperExemptions.length > 0) {
-    fail(`stale #3796 exemption — these now import ${ADDITION_HELPERS}, remove them from pendingHelperImport: ${staleHelperExemptions.join(', ')}`);
-  } else {
-    pass(`every headless evaluator outside the #3796 exemption imports AND calls the shared tracker-addition helpers`);
-  }
 
   // --count N: contiguous range from an empty dir.
   const rangeTmp = mkdtempSync(join(tmpdir(), 'career-ops-reserve-range-'));
@@ -14560,41 +13617,6 @@ try {
   fail(`Batch runner MCP isolation test crashed: ${e.message}`);
 }
 
-// ── 16. UPDATE-SYSTEM SEMVER PARSING (#923) ─────────────────────
-
-console.log('\n16. update-system SEMVER_RE');
-
-try {
-  // Importing must not trigger the CLI (the import.meta.url guard); it
-  // exposes SEMVER_RE, which the releases-API fallback uses on release.tag_name.
-  const { SEMVER_RE } = await import(pathToFileURL(join(ROOT, 'update-system.mjs')).href);
-  const parse = (tag) => String(tag).trim().match(SEMVER_RE)?.[1] ?? null;
-
-  // Release Please tags carry the component prefix (career-ops-v1.9.0); the
-  // prefix must be stripped or the releases-API fallback is dead code (#923).
-  if (parse('career-ops-v1.9.0') === '1.9.0') {
-    pass('SEMVER_RE parses Release Please component-prefixed tag (career-ops-v1.9.0 → 1.9.0)');
-  } else {
-    fail(`SEMVER_RE failed on career-ops-v1.9.0 (got ${parse('career-ops-v1.9.0')}) — releases-API fallback is dead code (#923)`);
-  }
-
-  // No regression on plain tags.
-  if (parse('v1.9.0') === '1.9.0' && parse('1.9.0') === '1.9.0') {
-    pass('SEMVER_RE still parses plain v-prefixed and bare semver tags');
-  } else {
-    fail(`SEMVER_RE regressed on plain tags (v1.9.0 → ${parse('v1.9.0')}, 1.9.0 → ${parse('1.9.0')})`);
-  }
-
-  // Non-semver input must not match.
-  if (parse('career-ops') === null && parse('v1.9') === null) {
-    pass('SEMVER_RE rejects non-semver input');
-  } else {
-    fail(`SEMVER_RE matched non-semver input (career-ops → ${parse('career-ops')}, v1.9 → ${parse('v1.9')})`);
-  }
-} catch (e) {
-  fail(`update-system SEMVER_RE test crashed: ${e.message}`);
-}
-
 // ── 17. COVER LETTER GREETING BLOCK ─────────────────────────────
 
 console.log('\n17. Cover letter greeting block');
@@ -15315,34 +14337,6 @@ try {
     fail('modes/_custom.template.md is missing — the custom-instructions seed is not shipped (#1198)');
   }
 
-  const updater = readFileSync(join(ROOT, 'update-system.mjs'), 'utf-8');
-
-  // The user file MUST be in USER_PATHS so update-system.mjs never overwrites
-  // the user's house rules — that is the whole point of #1198. Anchor to the
-  // USER_PATHS array block so a stray match elsewhere can't give a false pass.
-  const userBlock = (updater.match(/USER_PATHS\s*=\s*\[([\s\S]*?)\]/) || [, ''])[1];
-  if (userBlock.includes("'modes/_custom.md'")) {
-    pass('modes/_custom.md is in USER_PATHS (custom rules survive update-system.mjs)');
-  } else {
-    fail('modes/_custom.md is NOT in USER_PATHS — custom instructions would be wiped on update (#1198)');
-  }
-
-  // .claude/settings.json holds user-configured permissions and hooks (e.g. auto-backup).
-  // It must be in USER_PATHS so the updater never overwrites it (#1408).
-  if (userBlock.includes("'.claude/settings.json'")) {
-    pass('.claude/settings.json is in USER_PATHS (user harness config protected from update-system.mjs)');
-  } else {
-    fail('.claude/settings.json is NOT in USER_PATHS — user harness config would be wiped on update (#1408)');
-  }
-
-  // The template MUST be in SYSTEM_PATHS so updates deliver/refresh it.
-  const sysBlock = (updater.match(/SYSTEM_PATHS\s*=\s*\[([\s\S]*?)\]/) || [, ''])[1];
-  if (sysBlock.includes("'modes/_custom.template.md'")) {
-    pass('modes/_custom.template.md is in SYSTEM_PATHS (shipped + updatable)');
-  } else {
-    fail('modes/_custom.template.md is NOT in SYSTEM_PATHS — the seed never updates (#1198)');
-  }
-
   // AGENTS.md MUST route custom rules to the file AND seed it on onboarding.
   // CLAUDE.md inherits this via its @AGENTS.md wrapper.
   const agentsMd = readFileSync(join(ROOT, 'AGENTS.md'), 'utf-8');
@@ -15375,141 +14369,6 @@ try {
   }
 } catch (e) {
   fail(`custom instructions test crashed: ${e.message}`);
-}
-
-// ── 44. openrouter-runner — portals drift guard ─────────────────
-console.log('\n44. openrouter-runner — portals drift guard');
-
-try {
-  const { parsePortals } = await import(pathToFileURL(join(ROOT, 'openrouter-runner.mjs')).href);
-  const exampleYaml = readFileSync(join(ROOT, 'templates/portals.example.yml'), 'utf-8');
-  const { companies, titleMatches } = parsePortals(exampleYaml);
-
-  // The no-CLI runner must read the SAME canonical portals schema as scan.mjs
-  // (tracked_companies[].api + title_filter.positive/negative). If the schema
-  // drifts and the runner stops matching, this fails loudly — instead of the
-  // runner silently scanning zero companies (the exact bug this guard prevents).
-  if (companies.length > 0) pass(`runner parsePortals extracts ${companies.length} api-companies from the canonical portals schema`);
-  else fail('runner parsePortals extracted 0 companies from templates/portals.example.yml — schema drift');
-
-  if (companies.length > 0 && companies.every(c => c.name && c.api)) pass('each extracted company has a name and a JSON api endpoint');
-  else fail(`runner companies missing name/api: ${JSON.stringify(companies.slice(0, 3))}`);
-
-  if (titleMatches('AI Engineer') && !titleMatches('Forklift Operator')) {
-    pass('runner titleMatches honors title_filter.positive/negative from the canonical schema');
-  } else {
-    fail(`runner titleMatches drift: "AI Engineer"=${titleMatches('AI Engineer')} "Forklift Operator"=${titleMatches('Forklift Operator')}`);
-  }
-} catch (e) {
-  fail(`openrouter-runner portals drift guard crashed: ${e.message}`);
-}
-
-// ── 44b. openrouter-runner — prompt-cache breakpoint (#1709) ────
-console.log('\n44b. openrouter-runner — prompt-cache breakpoint (#1709)');
-try {
-  const { buildCachedSystemMessage } = await import(pathToFileURL(join(ROOT, 'openrouter-runner.mjs')).href);
-  const prefix = 'STATIC SYSTEM PREFIX — shared + profile + mode + cv';
-  const msg = buildCachedSystemMessage(prefix);
-  const block = msg?.content?.[0];
-  // The static prefix must ride as a structured content block carrying an
-  // ephemeral cache_control breakpoint, with the prompt text preserved verbatim
-  // (caching must never alter what the model reads).
-  if (
-    msg.role === 'system' &&
-    Array.isArray(msg.content) && msg.content.length === 1 &&
-    block.type === 'text' && block.text === prefix &&
-    block.cache_control && block.cache_control.type === 'ephemeral'
-  ) {
-    pass('buildCachedSystemMessage marks the static prefix with an ephemeral cache_control breakpoint, text unchanged (#1709)');
-  } else {
-    fail(`buildCachedSystemMessage shape wrong: ${JSON.stringify(msg)}`);
-  }
-} catch (e) {
-  fail(`openrouter-runner prompt-cache test crashed: ${e.message}`);
-}
-
-// ── 44c. openai-eval — host-gated prompt-cache breakpoint (#1709) ────
-// openai-eval.mjs runs on import (arg parse + fetch), so it can't be imported to
-// unit-test the helper — assert the host-gated shape at the source level (same
-// approach updater-migration-tests uses for update-system.mjs).
-console.log('\n44c. openai-eval — host-gated prompt-cache breakpoint (#1709)');
-try {
-  const src = readFileSync(join(ROOT, 'openai-eval.mjs'), 'utf-8');
-  const checks = [
-    // api.openai.com gets a plain-string system message (auto-caches; may reject the field)
-    { name: 'openai-eval gates cache_control off for api.openai.com', re: /host === 'api\.openai\.com'\)\s*return\s*\{\s*role:\s*'system',\s*content:\s*prompt\s*\}/ },
-    // other OpenAI-compatible hosts get the ephemeral cache_control breakpoint, text preserved
-    { name: 'openai-eval sends an ephemeral cache_control breakpoint to compatible gateways', re: /text:\s*prompt,\s*cache_control:\s*\{\s*type:\s*'ephemeral'\s*\}/ },
-    // and it's actually wired into the request, keyed on the resolved endpoint host
-    { name: 'openai-eval builds the system message via buildSystemMessage(systemPrompt, endpointHost)', re: /buildSystemMessage\(systemPrompt,\s*endpointHost\)/ },
-  ];
-  const missing = checks.filter((c) => !c.re.test(src));
-  if (missing.length === 0) pass('openai-eval host-gates the #1709 prompt-cache breakpoint and wires it into the request');
-  else fail(`openai-eval prompt-cache wiring missing: ${missing.map((m) => m.name).join('; ')}`);
-} catch (e) {
-  fail(`openai-eval prompt-cache source test crashed: ${e.message}`);
-}
-
-// ── 44d. gemini-eval — static prefix as systemInstruction (#1709) ────
-// Gemini has no cache_control field; its implicit prefix caching keys on a
-// stable systemInstruction, so the static context must sit there — not inline in
-// contents. Source-level, since gemini-eval runs on import.
-console.log('\n44d. gemini-eval — static prefix as systemInstruction (#1709)');
-try {
-  const src = readFileSync(join(ROOT, 'gemini-eval.mjs'), 'utf-8');
-  const usesSystemInstruction = /getGenerativeModel\(\{[\s\S]*?systemInstruction:\s*systemPrompt/.test(src);
-  // the per-request call must NOT re-embed the full systemPrompt inline (that
-  // would defeat stable-prefix caching and duplicate the context)
-  const noInlinePrefix = !/generateContent\(\[[\s\S]*?\{\s*text:\s*systemPrompt\s*\}/.test(src);
-  const carriesJdTurn = /generateContent\(`JOB DESCRIPTION TO EVALUATE/.test(src);
-  if (usesSystemInstruction && noInlinePrefix && carriesJdTurn) {
-    pass('gemini-eval moves the static prefix to systemInstruction and sends only the JD turn (#1709)');
-  } else {
-    fail(`gemini-eval systemInstruction wiring: sys=${usesSystemInstruction} noInline=${noInlinePrefix} jd=${carriesJdTurn}`);
-  }
-} catch (e) {
-  fail(`gemini-eval systemInstruction source test crashed: ${e.message}`);
-}
-
-// ── 44f. openai-tailor — host-gated prompt-cache breakpoint (#1709, #2432) ──
-// openai-tailor.mjs runs on import (arg parse + fetch), so it can't be imported
-// to unit-test the helper — assert the host-gated shape at the source level,
-// same approach as 44c for its sibling openai-eval.mjs.
-console.log('\n44f. openai-tailor — host-gated prompt-cache breakpoint (#1709, #2432)');
-try {
-  const src = readFileSync(join(ROOT, 'openai-tailor.mjs'), 'utf-8');
-  const checks = [
-    // api.openai.com gets a plain-string system message (auto-caches; may reject the field)
-    { name: 'openai-tailor gates cache_control off for api.openai.com', re: /host === 'api\.openai\.com'\)\s*return\s*\{\s*role:\s*'system',\s*content:\s*prompt\s*\}/ },
-    // other OpenAI-compatible hosts get the ephemeral cache_control breakpoint, text preserved
-    { name: 'openai-tailor sends an ephemeral cache_control breakpoint to compatible gateways', re: /text:\s*prompt,\s*cache_control:\s*\{\s*type:\s*'ephemeral'\s*\}/ },
-    // and it's actually wired into the request, keyed on the resolved endpoint host
-    { name: 'openai-tailor builds the system message via buildSystemMessage(systemPrompt, endpointHost)', re: /buildSystemMessage\(systemPrompt,\s*endpointHost\)/ },
-  ];
-  const missing = checks.filter((c) => !c.re.test(src));
-  if (missing.length === 0) pass('openai-tailor host-gates the #1709 prompt-cache breakpoint and wires it into the request');
-  else fail(`openai-tailor prompt-cache wiring missing: ${missing.map((m) => m.name).join('; ')}`);
-} catch (e) {
-  fail(`openai-tailor prompt-cache source test crashed: ${e.message}`);
-}
-
-// ── 44e. ollama-eval — temperature must live in options ────────
-// Ollama's /api/chat reads generation params from `options` only; a top-level
-// `temperature` is silently ignored (defaulting to 0.8). Assert it sits in
-// options so the eval stays deterministic. Source-level: ollama-eval runs on import.
-console.log('\n44e. ollama-eval — temperature in options');
-try {
-  const src = readFileSync(join(ROOT, 'ollama-eval.mjs'), 'utf-8');
-  const inOptions = /options:\s*\{[^}]*temperature:\s*0\.4[^}]*num_ctx/.test(src);
-  // must NOT set a top-level temperature in the request body (silently ignored)
-  const noTopLevel = !/\n\s*temperature:\s*0\.4,\s*\n\s*options:/.test(src);
-  if (inOptions && noTopLevel) {
-    pass('ollama-eval sets temperature inside options (not silently ignored at the top level)');
-  } else {
-    fail(`ollama-eval temperature placement: inOptions=${inOptions} noTopLevel=${noTopLevel}`);
-  }
-} catch (e) {
-  fail(`ollama-eval temperature test crashed: ${e.message}`);
 }
 
 // ── 45. SCAN COOLDOWN FILTER ──────────────────────────────────
@@ -16357,13 +15216,6 @@ try {
   if (leaks.length === 0) pass('shipped plugin artifacts (README/manifests/code/config) leak no revenue/moat wording (firewall)');
   else fail(`firewall leak in shipped plugin artifacts: ${leaks.join(', ')}`);
 
-  // Updater registration (SYSTEM vs USER split).
-  const upd = readFileSync(join(ROOT, 'update-system.mjs'), 'utf8');
-  if (["'plugins/'", "'plugins.mjs'", "'config/plugins.example.yml'"].every(s => upd.includes(s))) pass('plugins/, plugins.mjs, config/plugins.example.yml registered as SYSTEM paths');
-  else fail('plugin SYSTEM paths not fully registered in update-system.mjs');
-  if (["'config/plugins.yml'", "'plugins.local/'"].every(s => upd.includes(s))) pass('config/plugins.yml + plugins.local/ registered as USER paths (never auto-updated)');
-  else fail('plugin USER paths not registered in update-system.mjs');
-
 } catch (e) {
   console.warn = __origWarn;
   fail(`plugin engine tests crashed: ${e.message}`);
@@ -16377,7 +15229,7 @@ try {
 
 console.log('\n52. Interview session producer (#1242 transcript contract)');
 
-// Scaffold is system-owned and MUST ship (tracked) so the updater can deliver it.
+// Scaffold is system-owned and MUST ship (tracked).
 for (const f of ['interview-prep/sessions/.gitkeep', 'interview-prep/sessions/README.md']) {
   if (!fileExists(f)) {
     fail(`Missing session scaffold: ${f}`);
@@ -16404,25 +15256,6 @@ for (const f of ['interview-prep/sessions/.gitkeep', 'interview-prep/sessions/RE
     fail(`Session scaffold is gitignored (won't ship): ${f}`);
   } else {
     pass(`Session scaffold is force-included past the ignore rule: ${f}`);
-  }
-}
-
-// The scaffold must be in SYSTEM_PATHS (the updater delivers/refreshes it).
-{
-  const updater = readFile('update-system.mjs');
-  const sysBlock = (updater.match(/SYSTEM_PATHS\s*=\s*\[([\s\S]*?)\]/) || [, ''])[1];
-  for (const p of ['interview-prep/sessions/.gitkeep', 'interview-prep/sessions/README.md']) {
-    if (sysBlock.includes(`'${p}'`)) {
-      pass(`Session scaffold in SYSTEM_PATHS: ${p}`);
-    } else {
-      fail(`Session scaffold NOT in SYSTEM_PATHS (won't update): ${p}`);
-    }
-  }
-  // Never ship the directory itself — that would let an update wipe user sessions.
-  if (sysBlock.includes("'interview-prep/sessions/'")) {
-    fail("interview-prep/sessions/ dir is in SYSTEM_PATHS — an update could overwrite user sessions");
-  } else {
-    pass('interview-prep/sessions/ dir is NOT a SYSTEM_PATHS entry (user sessions safe)');
   }
 }
 
@@ -17216,7 +16049,7 @@ try {
   const webLib = join(ROOT, 'web', 'src', 'lib');
   const runRoutePath = join(ROOT, 'web', 'src', 'app', 'api', 'run', 'route.ts');
   if (!existsSync(webLib)) {
-    // Expected for a data-only install: web/ is in no SYSTEM_PATHS entry.
+    // Expected for a data-only install: web/ is optional.
     warn('web/ not present in this checkout — skipping the pdf write-scope freeze (#2185)');
   } else {
     // web/ IS here, so a missing file means a move, not an absence — fail rather
@@ -18190,7 +17023,7 @@ try {
   fail(`modes/titles.md missing or unreadable: ${e.message}`);
 }
 
-for (const skillPath of ['.claude/skills/career-ops/SKILL.md', '.agents/skills/career-ops/SKILL.md']) {
+for (const skillPath of ['.claude/skills/career-ops/SKILL.md']) {
   if (!fileExists(skillPath)) continue; // existence already checked in section 8
   const skill = readFile(skillPath);
   if (
@@ -18218,14 +17051,6 @@ try {
     pass('AGENTS.md registers the titles Skill Modes row');
   } else {
     fail('AGENTS.md missing the titles Skill Modes row');
-  }
-
-  const updaterSrc = readFile('update-system.mjs');
-  const titlesSysBlock = (updaterSrc.match(/SYSTEM_PATHS\s*=\s*\[([\s\S]*?)\]/) || [, ''])[1];
-  if (titlesSysBlock.includes("'modes/titles.md'")) {
-    pass('modes/titles.md is in update-system.mjs SYSTEM_PATHS (shipped + updatable)');
-  } else {
-    fail('modes/titles.md is NOT in SYSTEM_PATHS — updates would never deliver it');
   }
 
   const dataContract = readFile('DATA_CONTRACT.md');
@@ -19236,7 +18061,7 @@ console.log('\n69. Jurisdiction-prohibited content signal (#2018)');
 // check-table-freshness.mjs's own --self-test (invoked above via the
 // CLI-check table) covers discovery shapes, finding semantics, date-math
 // boundaries, and malformed-date handling on its own fixtures. This section
-// pins the wiring: the script ships, updates, is documented — and stays
+// pins the wiring: the script ships, is documented — and stays
 // strictly read-only (it reports stale jurisdiction rows; it must never be
 // able to "fix" them, or any other file, itself).
 
@@ -19244,14 +18069,6 @@ console.log('\n70. Table-freshness validator wiring + read-only boundary (#2036)
 
 try {
   const freshnessSrc = readFile('check-table-freshness.mjs');
-
-  const updaterSrc = readFile('update-system.mjs');
-  const freshSysBlock = (updaterSrc.match(/SYSTEM_PATHS\s*=\s*\[([\s\S]*?)\]/) || [, ''])[1];
-  if (freshSysBlock.includes("'check-table-freshness.mjs'")) {
-    pass('check-table-freshness.mjs is in update-system.mjs SYSTEM_PATHS (shipped + updatable)');
-  } else {
-    fail('check-table-freshness.mjs is NOT in SYSTEM_PATHS — updates would never deliver it');
-  }
 
   const pkg = JSON.parse(readFile('package.json'));
   if (pkg.scripts && pkg.scripts.freshness === 'node check-table-freshness.mjs') {
@@ -19515,9 +18332,8 @@ try {
 // ── FUNDING MANIFEST INTEGRITY (funding.json, fundingjson.org v1.1.0) ──
 // The manifest is CRAWLED by a directory that re-reads it on its own schedule,
 // so a break here degrades silently: the listing goes stale or drops, and the
-// first signal is an email that never arrives. SYSTEM_PATHS coverage only
-// guarantees the file SHIPS; nothing until now checked that it still parses or
-// that its required fields survived an edit.
+// first signal is an email that never arrives. Nothing else checks that it
+// still parses or that its required fields survived an edit.
 //
 // The dated-metric rule is the project's own, not the schema's: every count in
 // a description carries the date it was counted, because a bare "68,000 stars"
@@ -19616,82 +18432,6 @@ try {
   }
 } catch (e) {
   fail(`funding manifest integrity check: ${e.message}`);
-}
-
-console.log('\n73. Gemini evaluator and encoding');
-
-let geminiTmp = null;
-try {
-  geminiTmp = mkdtempSync(join(ROOT, `${SCRATCH_PREFIX}co-gemini-`));
-  const configDir = join(geminiTmp, 'config');
-  const modesDir = join(geminiTmp, 'modes', 'tr');
-  mkdirSync(configDir, { recursive: true });
-  mkdirSync(modesDir, { recursive: true });
-
-  // 1. Create a profile.yml setting modes_dir to modes/tr
-  writeFileSync(
-    join(configDir, 'profile.yml'),
-    '\uFEFFlanguage:\n  modes_dir: modes/tr\n', // Starts with a UTF-8 BOM
-    'utf-8'
-  );
-
-  // 2. Create localized dummy files in modes/tr/
-  // is-ilani.md contains Turkish/Czech characters: Türkiye, Čeština
-  writeFileSync(join(modesDir, '_shared.md'), 'Shared Turkish context', 'utf-8');
-  writeFileSync(join(modesDir, 'is-ilani.md'), 'Türkiye Čeština logic', 'utf-8');
-
-  // 3. Create other required files
-  writeFileSync(join(geminiTmp, 'cv.md'), 'My CV', 'utf-8');
-  mkdirSync(join(geminiTmp, 'modes'), { recursive: true });
-  writeFileSync(join(geminiTmp, 'modes', '_profile.md'), 'My Profile', 'utf-8');
-
-  // 4. Create a mock job description file with a BOM and UTF-8 characters
-  const jdPath = join(geminiTmp, 'mock-jd.txt');
-  writeFileSync(jdPath, '\uFEFFJob in Türkiye Čeština with BOM', 'utf-8');
-
-  // Run ROOT/gemini-eval.mjs directly with cwd: geminiTmp.
-  let stdout = '';
-  let stderr = '';
-  try {
-    stdout = execFileSync(NODE, [join(ROOT, 'gemini-eval.mjs'), '--file', jdPath, '--no-save'], {
-      cwd: geminiTmp,
-      env: {
-        ...process.env,
-        GEMINI_API_KEY: 'mock-api-key-12345'
-      },
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 30000
-    });
-  } catch (err) {
-    stdout = err.stdout || '';
-    stderr = err.stderr || '';
-  }
-
-  // Assertions:
-  if (stdout.includes('Loading context files...')) {
-    pass('Gemini evaluator loads files phase started');
-  } else {
-    fail('Gemini evaluator failed to start file loading phase');
-  }
-
-  if (stdout.includes('modes/tr/_shared.md not found') || stdout.includes('modes/tr/is-ilani.md not found')) {
-    fail('Gemini evaluator failed to resolve custom modes directory or filenames');
-  } else {
-    pass('Gemini evaluator resolved custom modes directory (modes/tr/) and localized filenames (is-ilani.md)');
-  }
-
-  if (stderr.includes('API_KEY') || stderr.includes('API key')) {
-    pass('Gemini evaluator reached API phase with mock key');
-  } else {
-    fail(`Gemini evaluator failed before reaching API phase or crashed: ${stderr}`);
-  }
-} catch (e) {
-  fail(`Gemini evaluator test crashed: ${e.message}`);
-} finally {
-  if (geminiTmp && existsSync(geminiTmp)) {
-    rmSync(geminiTmp, { recursive: true, force: true });
-  }
 }
 
 console.log('\n74. gmail: isCleanUrl() drops page assets');

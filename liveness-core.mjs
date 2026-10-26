@@ -316,8 +316,7 @@ const EXPIRED_HISTORY_STATUS = /expired/i;
  *   - **Not an unrendered page.** The browser rung reads a page under 300
  *     characters with no closure notice and no apply control as
  *     `insufficient_content`, which is mostly a page that had not rendered yet.
- *     AGENTS.md calls a loading placeholder unconfirmed, not closed, and
- *     batch-evaluate-gemini.mjs skips the same code. A dead posting that reads
+ *     AGENTS.md calls a loading placeholder unconfirmed, not closed. A dead posting that reads
  *     this way gets no row, as it did before this recorder existed.
  *   - **Only URLs the history already knows.** A liveness sweep is not a
  *     discovery channel: a URL scan-history never saw has no row to retire, and

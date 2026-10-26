@@ -8,13 +8,13 @@ description: >-
 arguments: mode
 user_invocable: true
 user-invocable: true
-argument-hint: "[scan | discover | deep | pdf | ats | text | latex | latex-tex | cover | email | add | expand | eu-swe | oferta | ofertas | apply | triage | batch | tracker | agent-inbox | pipeline | contacto | training | project | interview-prep | interview | master-profile | intake | interview/plan | interview/practice | interview/debrief | interview-redflag | patterns | calibrate | offer-prep | titles | upskill | followup | reply-watch | outcome | update]"
+argument-hint: "[scan | discover | deep | pdf | ats | text | latex | latex-tex | cover | email | add | expand | eu-swe | oferta | ofertas | apply | triage | batch | tracker | agent-inbox | pipeline | contacto | training | project | interview-prep | interview | master-profile | intake | interview/plan | interview/practice | interview/debrief | interview-redflag | patterns | calibrate | offer-prep | titles | upskill | followup | reply-watch | outcome]"
 license: MIT
 ---
 
 # career-ops -- Router
 
-career-ops is a multi-CLI job-search command center. The routing below is shared across supported agent CLIs even when the invocation surface differs.
+career-ops is a job-search command center for Claude Code. The routing below is the same whether the entrypoint is a slash command or a natural-language prompt.
 
 ## Project Root Resolution
 
@@ -22,22 +22,8 @@ Before reading any repo-relative path, derive `PROJECT_ROOT` from this loaded `S
 
 ## Invocation Notes
 
-- CLIs with slash-command registration can expose this router as `/career-ops`.
-- In Cursor, this skill lives at `.agents/skills/career-ops/` and is auto-discovered; ask for a mode by name, or paste a JD/URL to trigger auto-pipeline.
-- In Pi, this skill is auto-discovered from `.agents/skills/career-ops/` and exposed as `/skill:career-ops`; `AGENTS.md` loads from the repo root as project context, so there is no wrapper file. Headless Pi workers use `pi -p "prompt"`. Project skill discovery follows Pi's per-folder trust decision: `/trust` applies to future Pi processes, so restart `pi` before invoking `/skill:career-ops` (`-a` trusts a single run and needs no restart).
-- Interactive Codex sessions use `codex` in the repo root. Slash commands are not guaranteed in Codex, so ask Codex to run the same mode by name if `/career-ops` is unavailable.
-- Headless Codex workers use `codex exec "prompt"`.
+- Claude Code exposes this router as `/career-ops`.
 - The routing semantics below stay the same regardless of whether the entrypoint is a slash command or a natural-language prompt.
-
-Codex prompt examples that map to the same router semantics:
-
-```text
-Evaluate this JD with career-ops auto-pipeline: https://company.com/jobs/123
-Run the career-ops scan mode and summarize new matches.
-Run the career-ops pipeline mode for data/pipeline.md.
-Run the career-ops pdf mode for the latest evaluated role.
-Run the career-ops tracker mode and summarize the current statuses.
-```
 
 ## Mode Routing
 
@@ -87,7 +73,6 @@ Determine the mode from `$mode`:
 | `reply-watch` | `reply-watch` |
 | `outcome` | `outcome` |
 | `interview-redflag` | `interview-redflag` |
-| `update` | `update` |
 | `cover` | `cover` |
 
 **Auto-pipeline detection:** If `$mode` is not a known sub-command AND contains JD text (keywords: "responsibilities", "requirements", "qualifications", "about the role", "we're looking for", company name + role) or a URL to a JD, execute `auto-pipeline`.
@@ -127,9 +112,7 @@ Hosts that title sessions automatically name them after the invocation, so every
 
 ## Discovery Mode (no arguments)
 
-If your CLI supports `/career-ops`, show this menu. In Codex, surface the same options in plain text and map the requested mode the same way.
-
-Concrete equivalents for Codex prompt-driven sessions:
+Show the menu below. The same modes can be requested in plain language:
 
 ```text
 /career-ops {JD}           ↔ "Evaluate this JD with career-ops auto-pipeline: {JD or URL}"
@@ -140,7 +123,7 @@ Concrete equivalents for Codex prompt-driven sessions:
 /career-ops tracker        ↔ "Run the career-ops tracker mode and summarize the current statuses."
 ```
 
-Show this menu:
+Menu:
 
 ```
 career-ops -- Command Center
@@ -185,7 +168,6 @@ Available commands:
   /career-ops upskill   → Aggregate skill-gap analysis from your evaluated reports
   /career-ops followup  → Follow-up cadence tracker: flag overdue, generate drafts
   /career-ops outcome   → Record application outcome & archive artifacts
-  /career-ops update    → Update career-ops system files with diff preview + compat check
 
 Inbox: add URLs to data/pipeline.md → /career-ops pipeline
 Or paste a JD directly to run the full pipeline.

@@ -28,12 +28,11 @@ import { listTree } from '../lib/walk-tree.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
-// The documents a CLI loads automatically, plus the mode files and batch prompt
+// The documents Claude Code loads automatically, plus the mode files and batch prompt
 // it follows. DATA_CONTRACT.md is included because the agent instructions point
 // at it as the authority on file ownership.
 const AGENT_DOCS = [
-  'AGENTS.md', 'CLAUDE.md', 'CODEX.md', 'OPENCODE.md',
-  'GEMINI.md', 'KIMI.md', 'DATA_CONTRACT.md',
+  'AGENTS.md', 'CLAUDE.md', 'DATA_CONTRACT.md',
   'batch/batch-prompt.md',
   ...listTree(join(ROOT, 'modes'), { match: /\.md$/ })
     .map((path) => relative(ROOT, path))

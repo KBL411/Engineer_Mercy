@@ -22,19 +22,6 @@ import { findTitleFilterConflicts, representativeTitle } from '../lib/title-filt
 
 console.log('\ntitle_filter conflicts — a positive the negatives veto');
 
-// ── the updater ships the module doctor now imports ─────────────────
-// doctor.mjs is a SYSTEM_PATHS file, so an upgrade checks out the new doctor
-// over an install whose updater has no entry for lib/title-filter-conflicts.mjs
-// -- and the install is left with a doctor that cannot load. Same shape as the
-// check tests/jd-archive-wiring.test.mjs makes for check-jd-archive.mjs.
-const updaterSrc = readFileSync(join(ROOT, 'update-system.mjs'), 'utf-8');
-const systemBlock = (updaterSrc.match(/SYSTEM_PATHS\s*=\s*\[([\s\S]*?)\]/) || [, ''])[1];
-if (systemBlock.includes("'lib/title-filter-conflicts.mjs'")) {
-  pass('lib/title-filter-conflicts.mjs is in SYSTEM_PATHS (shipped + updatable)');
-} else {
-  fail('lib/title-filter-conflicts.mjs is NOT in SYSTEM_PATHS — an upgraded install would get a doctor that cannot load');
-}
-
 // ── the shipped example is coherent ─────────────────────────────────
 const cfg = yaml.load(readFileSync(join(ROOT, 'templates/portals.example.yml'), 'utf-8'));
 const shipped = findTitleFilterConflicts(cfg.title_filter);

@@ -6,7 +6,6 @@
 // leave the wiring reporting a clean run over a changed tracker.
 import { pass, fail, rmSync } from './helpers.mjs';
 import { GUARDED_PATHS, MARKER_FILE, UNGUARDED_USER_PATHS, describeDrift, diffSnapshots, snapshotDataRoot } from './data-root-guard.mjs';
-import { USER_PATHS } from '../update-system.mjs';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -133,24 +132,9 @@ try {
     GUARDED_PATHS,
   );
 
-  // GUARDED_PATHS calls itself the content half of USER_PATHS. Held to that
-  // here, in both directions, because a comment does not notice the next
-  // edit: a user-layer path added to update-system.mjs and to neither list
-  // would be a place to write unseen, in the module whose job is to see.
-  const userPaths = USER_PATHS.map((p) => p.replace(/\/$/, ''));
+  // The two lists must stay disjoint and every gap must be a decision with a
+  // reason; a comment does not notice the next edit, so both are held here.
   const unguarded = Object.keys(UNGUARDED_USER_PATHS);
-  const unclassified = userPaths.filter((p) => !GUARDED_PATHS.includes(p) && !unguarded.includes(p));
-  check(
-    unclassified.length === 0,
-    'every USER_PATHS entry is either guarded or listed as unguarded with a reason',
-    unclassified,
-  );
-  const notUserLayer = [...GUARDED_PATHS, ...unguarded].filter((p) => !userPaths.includes(p));
-  check(
-    notUserLayer.length === 0,
-    'neither list names a path that is not in USER_PATHS',
-    notUserLayer,
-  );
   const inBoth = GUARDED_PATHS.filter((p) => unguarded.includes(p));
   check(inBoth.length === 0, 'no path is both guarded and listed as unguarded', inBoth);
   const noReason = unguarded.filter((p) => String(UNGUARDED_USER_PATHS[p] ?? '').trim().length < 20);

@@ -3,8 +3,8 @@
 // Covers the deterministic half (intake.mjs): source classification, the
 // PDF extraction ladder's degrade path, the idempotency delta, the CLI's
 // scan/--commit round-trip on an isolated temp documents/ dir, and the
-// three-place registration contract (DATA_CONTRACT / .gitignore /
-// update-system manifest — same cross-check pattern as offer-prep).
+// registration contract (DATA_CONTRACT / .gitignore / AGENTS.md — same
+// cross-check pattern as offer-prep).
 import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -309,11 +309,10 @@ if (process.platform !== 'win32' && process.getuid?.() !== 0) {
   else fail('modes/intake.md still shows a bare `--commit` as the record-everything form');
 }
 
-// ── three-place registration contract (offer-prep pattern) ───────────────
+// ── registration contract (offer-prep pattern) ───────────────
 {
   const dataContractDoc = readFileSync(join(ROOT, 'DATA_CONTRACT.md'), 'utf-8');
   const gitignoreDoc = readFileSync(join(ROOT, '.gitignore'), 'utf-8');
-  const updaterSrc = readFileSync(join(ROOT, 'update-system.mjs'), 'utf-8');
   const agentsDoc = readFileSync(join(ROOT, 'AGENTS.md'), 'utf-8');
   if (
     dataContractDoc.includes('documents/*')
@@ -322,14 +321,11 @@ if (process.platform !== 'win32' && process.getuid?.() !== 0) {
     && gitignoreDoc.includes('!documents/.gitkeep')
     && gitignoreDoc.includes('!documents/README.md')
     && gitignoreDoc.includes('data/intake-state.json')
-    && updaterSrc.includes("'documents/'")
-    && updaterSrc.includes("'modes/intake.md'")
-    && updaterSrc.includes("'intake.mjs'")
     && agentsDoc.includes('`intake`')
   ) {
-    pass('intake registered in data contract, gitignore, updater manifest, and AGENTS.md routing');
+    pass('intake registered in data contract, gitignore, and AGENTS.md routing');
   } else {
-    fail('intake missing from data contract / gitignore / update-system paths / AGENTS.md');
+    fail('intake missing from data contract / gitignore / AGENTS.md');
   }
 
   // documents/ holds the master CV, diplomas and reference letters — the

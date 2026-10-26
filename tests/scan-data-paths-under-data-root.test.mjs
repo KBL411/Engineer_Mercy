@@ -115,7 +115,7 @@ try {
   // 6. No scanner may reintroduce a bare-relative user-data path. The behavioral
   //    checks above cover today's constants; this covers the next one added.
   const offenders = [];
-  for (const file of ['scan.mjs', 'scan-ats-full.mjs', 'scan-interamt.mjs', 'scan-hn.mjs']) {
+  for (const file of ['scan.mjs', 'scan-ats-full.mjs', 'scan-interamt.mjs']) {
     const src = readFileSync(join(ROOT, file), 'utf-8');
     for (const m of src.matchAll(/^(?:export )?const\s+(\w+)\s*=\s*'((?:data|output)\/[^']*|portals\.yml)'/gm)) {
       offenders.push(`${file}: ${m[1]} = '${m[2]}'`);

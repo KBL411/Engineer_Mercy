@@ -58,11 +58,8 @@ const floor = NODE_MIN.split('.').slice(0, 2).join('.');
 
 // ── Every restatement matches ────────────────────────────────────────
 {
-  const engines = (rel) => JSON.parse(readFileSync(join(ROOT, rel), 'utf8')).engines?.node;
-  for (const rel of ['package.json', 'scaffolder/package.json']) {
-    const got = engines(rel);
-    ok(got === NODE_ENGINES, `${rel} engines.node is "${NODE_ENGINES}" (found ${JSON.stringify(got)})`);
-  }
+  const got = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).engines?.node;
+  ok(got === NODE_ENGINES, `package.json engines.node is "${NODE_ENGINES}" (found ${JSON.stringify(got)})`);
 
   // The CI floor job. Exact match: a bare major ('22') resolves to the newest
   // 22.x, so it would run without testing the floor.

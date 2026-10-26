@@ -506,11 +506,11 @@ test('trackedFiles returns an unmerged path once, not once per index stage', () 
 });
 
 test('trackedFiles throws rather than reporting an empty, passing scan', () => {
-  // Same stance as collectMjsFiles above and validate-system-paths-coverage.mjs:
-  // a guard that could not look must never read as a guard that passed. The
-  // realistic way to get here is running from a temp copy inside the repo,
-  // where `ls-files` reports nothing at all — which is how the SYSTEM_PATHS
-  // coverage guard sat green and inert in CI for its whole life.
+  // Same stance as collectMjsFiles above: a guard that could not look must
+  // never read as a guard that passed. The realistic way to get here is running
+  // from a temp copy inside the repo, where `ls-files` reports nothing at all —
+  // which is how a coverage guard once sat green and inert in CI for its whole
+  // life.
   const empty = gitRepo('co-tracked-empty-');
   try {
     writeFileSync(join(empty.dir, 'untracked.mjs'), '');
@@ -630,39 +630,6 @@ test('a checkout under tests/ does not get its suites EXECUTED by the runner', (
     rmSync(fixture, { recursive: true, force: true });
   }
 });
-
-test('a checkout parked among the fixture states is not an allowlisted state', () => {
-  // The class no static gate can see: `listStates()` reads one level, and its
-  // result becomes the ROOT that `walk()` starts from — where the child-only
-  // guard is deliberately blind (the walk root is exempt on purpose). So a
-  // checkout at test-fixtures/upgrade/<state> would be a valid `--state` name
-  // and seedFixture would copy a whole second repository into the install
-  // under test, hashing every file of it into the manifest (#3762).
-  const FIXTURES = join(ROOT, 'test-fixtures', 'upgrade');
-  // mkdtemp for the same reason as the test above — and the `state-` prefix
-  // keeps the probe shaped like the thing it is pretending to be.
-  const probe = mkdtempSync(join(FIXTURES, 'state-nested-checkout-probe-'));
-  const probeName = basename(probe);
-  try {
-    writeFileSync(join(probe, '.git'), 'gitdir: /nowhere\n');
-    writeFileSync(join(probe, 'cv.md'), '# not ours\n');
-
-    const listed = execFileSync(
-      process.execPath,
-      ['-e', "import('./seed-fixture.mjs').then((m) => console.log(JSON.stringify(m.listStates())))"],
-      { cwd: ROOT, encoding: 'utf-8', timeout: 60000 },
-    );
-    const states = JSON.parse(listed);
-    assert.ok(states.length > 0, 'the probe must not empty the state list — that would pass for the wrong reason');
-    assert.ok(
-      !states.includes(probeName),
-      `listStates() offered a nested checkout as a fixture state: ${states.join(', ')}`,
-    );
-  } finally {
-    rmSync(probe, { recursive: true, force: true });
-  }
-});
-
 
 test('both syntax checkers derive their file list from the shared collector', () => {
   for (const caller of ['test-all.mjs', 'scripts/check-syntax.mjs']) {

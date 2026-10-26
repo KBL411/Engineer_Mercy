@@ -2,7 +2,7 @@
 # Last matching pattern wins. See MAINTAINERS.md for the team and GOVERNANCE.md for the ladder.
 #
 # Scope principle: gate what CI can't catch (a bad change here passes the
-# tests silently) + the catastrophic updater + governance docs. Code that
+# tests silently) + governance docs. Code that
 # test-all.mjs / Renovate / dependency-review already guard (scan.mjs,
 # generate-pdf.mjs, test-all.mjs, package.json) is intentionally NOT gated,
 # so routine contributor PRs aren't bottlenecked on a single owner.
@@ -28,26 +28,15 @@
 /.github/copilot-instructions.md  @santifer
 /.github/agents/                  @santifer
 
-# Agent behavior & the multi-CLI contract (prompt layer — CI-blind)
+# Agent behavior (prompt layer — CI-blind)
 /CLAUDE.md             @santifer
 /AGENTS.md             @santifer
-/CODEX.md              @santifer
-/OPENCODE.md           @santifer
-/GEMINI.md             @santifer
-/KIMI.md               @santifer
-# The skill router. Every CLI's skill entrypoint (.claude/, .cursor/,
-# .opencode/, .qwen/, .kimi/, .grok/, .antigravitycli/) is a symlink to this
-# one file, so an edit here changes only this path — the symlinks never show
-# up in the diff.
-/.agents/skills/career-ops/SKILL.md  @santifer
+# The skill router: the one file `/career-ops <mode>` goes through.
+/.claude/skills/career-ops/SKILL.md  @santifer
 
 # Scoring & the system/user data contract (CI-blind; silent-danger)
 /modes/_shared.md      @santifer
 /DATA_CONTRACT.md      @santifer
-
-# The self-updater (catastrophic if wrong — touches user installs)
-/update-system.mjs     @santifer
-/updater-migration-tests.mjs  @santifer
 
 # Plugin governance chokepoint (a bad change here ships unreviewed code to
 # every user — the registry pin, the gates, and the CI must stay single-owner).

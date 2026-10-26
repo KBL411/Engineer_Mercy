@@ -3,7 +3,7 @@
 <!-- ============================================================
      THIS FILE IS YOURS. Copy it to `modes/_brief.md` and fill in the placeholders.
      Onboarding can copy it with `node doctor.mjs --json --init-templates`.
-     It is USER LAYER — never auto-updated by `node update-system.mjs`.
+     It is USER LAYER — never touched by the system.
 
      PURPOSE: Compact context for first-pass triage agents
      (`modes/triage.md`). It replaces reading the full evaluation

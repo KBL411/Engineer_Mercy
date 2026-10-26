@@ -216,7 +216,7 @@ const noProfile = buildBudgetedPrompt({
 ok('no profile: does not crash', typeof noProfile.contextBody === 'string');
 ok('no profile: report is valid', typeof noProfile.budgetReport === 'object');
 
-// With profile files (gemini-eval.mjs style)
+// With profile files
 const withProfile = buildBudgetedPrompt({
   sharedContent: SHARED_STUB,
   ofertaContent: 'Evaluate job offers.',

@@ -21,7 +21,6 @@ import { join } from 'path';
 import * as yaml from 'js-yaml';
 import { buildTitleFilter, compileKeyword } from '../scan.mjs';
 import { AND_SEPARATOR } from '../title-keywords.mjs';
-import { parsePortals } from '../openrouter-runner.mjs';
 
 console.log('\ntitle filter — `word:` prefix and dead-positive guard');
 
@@ -140,77 +139,7 @@ if (vetoed.length === 0) {
   fail(`vetoed by the shipped negatives: ${JSON.stringify(vetoed)}`);
 }
 
-// ── 4. Both title-filtering paths must agree ─────────────────────────
-// openrouter-runner.mjs cannot import scan.mjs (scan.mjs creates data/ at
-// import time), so it used to keep a second copy of the matching rules. The two
-// had drifted in three ways, none of which the shipped config can expose,
-// because it has positives and no malformed entries. Each case below is a
-// config where the old copy answered differently from buildTitleFilter:
-//
-//   negative-only   scan: no positive constraint, keep    copy: rejected everything
-//   AND-group       scan: both terms must appear          copy: literal " + " text
-//   junk entry      scan: dropped as non-string           copy: coerced to "123"
-//
-// Comparing verdicts against the shared predicate is the assertion; agreeing on
-// the shipped config alone would have passed throughout the drift.
-const driftCases = [
-  {
-    name: 'negative-only config',
-    filter: { negative: ['word:intern'] },
-    titles: ['Operations Manager', 'Warehouse Associate', 'Operations Intern'],
-  },
-  {
-    name: 'AND-group positive',
-    filter: { positive: ['director + engineering'] },
-    titles: ['Director of Engineering', 'Director of Sales', 'Engineering Lead'],
-  },
-  {
-    name: 'malformed entries',
-    filter: { positive: ['operations', null, 123, '   '], negative: [] },
-    titles: ['Operations Manager', '123 Widgets Coordinator', 'Warehouse Associate'],
-  },
-  {
-    name: 'no title_filter at all',
-    filter: undefined,
-    titles: ['Operations Manager', 'Anything At All'],
-  },
-];
-const drifted = [];
-for (const { name, filter, titles } of driftCases) {
-  const yamlText = yaml.dump(filter === undefined ? {} : { title_filter: filter });
-  const runner = parsePortals(yamlText).titleMatches;
-  const canonical = buildTitleFilter(filter);
-  for (const t of titles) {
-    if (runner(t) !== canonical(t)) {
-      drifted.push(`${name}: "${t}" runner=${runner(t)} scan=${canonical(t)}`);
-    }
-  }
-}
-if (drifted.length === 0) {
-  pass('openrouter-runner matches buildTitleFilter on every drift case');
-} else {
-  fail(`the two title-filter paths disagree: ${JSON.stringify(drifted)}`);
-}
-
-// The shipped config too, since that is what actually runs for a new install.
-const runnerYaml = readFileSync(join(ROOT, 'templates/portals.example.yml'), 'utf-8');
-const { titleMatches } = parsePortals(runnerYaml);
-const bothPaths = [
-  'Operations Intern',
-  'Implementation Internship',
-  'Manager, Internal Tools',
-  'International Partnerships Manager',
-  'Customer Success Manager',
-  'Warehouse Associate',
-];
-const disagreed = bothPaths.filter((t) => titleMatches(t) !== shipped(t));
-if (disagreed.length === 0) {
-  pass('scan.mjs and openrouter-runner agree on every intern/internal title');
-} else {
-  fail(`the two title-filter paths disagree on: ${JSON.stringify(disagreed)}`);
-}
-
-// ── 5. No config may carry a permanently-vetoed positive ─────────────
+// ── 4. No config may carry a permanently-vetoed positive ─────────────
 // A positive the negative list matches INSIDE its own text can never be
 // satisfied by any title. This needs no observed titles, which is why it is the
 // assertion that catches the original bug.
@@ -283,7 +212,7 @@ if (exampleWrong.length === 0) {
   fail(`example config verdicts wrong for: ${JSON.stringify(exampleWrong)}`);
 }
 
-// ── 6. Regressions from the #2970 review ─────────────────────────────
+// ── 5. Regressions from the #2970 review ─────────────────────────────
 // Each of these was reproduced before it was fixed; each fails if its fix is
 // reverted.
 
@@ -301,9 +230,8 @@ if (accentWrong.length === 0) {
   fail(`word: boundary wrong for: ${JSON.stringify(accentWrong)}`);
 }
 
-// (b) A truthy non-string title must not throw. scan.mjs used `(title || '')`
-// and openrouter-runner used `String(title ?? '')`; merging the two paths onto
-// the former would abort jobs.filter and lose a whole company's results.
+// (b) A truthy non-string title must not throw: it would abort jobs.filter and
+// lose a whole company's results.
 const anyTitle = buildTitleFilter({ positive: ['engineer'] });
 const threw = [];
 for (const v of [123, { a: 1 }, ['x'], true, null, undefined, '']) {

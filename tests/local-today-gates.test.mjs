@@ -175,7 +175,7 @@ test('check-table-freshness --today still overrides, and reports the date it use
 test('each scanner that writes scan-history imports localToday', () => {
   // The check above is satisfied by deleting the date argument entirely. This
   // asserts the replacement is actually present.
-  for (const file of ['scan.mjs', 'scan-ats-full.mjs', 'scan-hn.mjs', 'scan-interamt.mjs']) {
+  for (const file of ['scan.mjs', 'scan-ats-full.mjs', 'scan-interamt.mjs']) {
     const src = readFileSync(join(ROOT, file), 'utf8');
     assert.match(
       src, /import\s*{[^}]*\blocalToday\b[^}]*}\s*from\s*['"][^'"]*local-today\.mjs['"]/,
@@ -412,7 +412,7 @@ test('the scanner resolves every call the four known writers contain', () => {
   // would catch masking that is correct in miniature and wrong at scale.
   // scan.mjs went 5 → 7 when the location and posting-age cuts started
   // recording what they drop (`skipped_location`, `skipped_age`).
-  for (const [file, expected] of [['scan.mjs', 7], ['scan-ats-full.mjs', 1], ['scan-hn.mjs', 1], ['scan-interamt.mjs', 5]]) {
+  for (const [file, expected] of [['scan.mjs', 7], ['scan-ats-full.mjs', 1], ['scan-interamt.mjs', 5]]) {
     const src = readFileSync(join(ROOT, file), 'utf-8');
     const naive = [...src.matchAll(/(?<!function )\bappendToScanHistory\s*\(/g)].length;
     assert.equal(naive, expected, `${file}: expected ${expected} call sites, source has ${naive} — update this expectation deliberately`);

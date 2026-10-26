@@ -1,8 +1,8 @@
 # Data Contract
 
-This document defines which files belong to the **system** (auto-updatable) and which belong to the **user** (preserved by updates).
+This document defines which files belong to the **system** (the tool itself) and which belong to the **user** (your data, never overwritten by the tool).
 
-## User Layer (preserved by updates)
+## User Layer
 
 These files contain your personal data, customizations, and work product. Updates preserve user-owned files. The updater may create or replace only these system-owned `.gitkeep` scaffolds inside user-layer directories: `data/.gitkeep`, `data/offers/.gitkeep`, `data/parser-output/.gitkeep`, `jds/.gitkeep`, `output/.gitkeep`, and `reports/.gitkeep`. It never checks out or modifies any other user file in those directories.
 
@@ -14,9 +14,8 @@ These files contain your personal data, customizations, and work product. Update
 | `config/profile.yml` | Your identity, targets, comp range |
 | `config/cv-facts.json` | Your CV fact-check allowlist and forbidden phrases |
 | `config/benchmarks.yml` | Your market calibration benchmark overrides (optional; copy `templates/benchmarks.yml` here and edit — read by `funnel-velocity.mjs`) |
-| `config/local-paths.txt` | Files *this clone* owns that upstream does not ship — one repo-relative path per line (optional; copy `config/local-paths.example.txt` here and edit). See [Fork-local paths](#fork-local-paths) below |
 | `modes/_profile.md` | Your archetypes, narrative, negotiation scripts |
-| `modes/_custom.md` | Your house rules, custom workflows & output preferences (procedural — survives updates) |
+| `modes/_custom.md` | Your house rules, custom workflows & output preferences (procedural) |
 | `modes/_brief.md` | Your compact profile brief (~1.5–2K tokens) read by the two-pass triage first pass |
 | `voice-dna.md` | Your writing voice guardrail — banned words, anti-AI-slop rules, tone (optional) |
 | `article-digest.md` | Your proof points from portfolio |
@@ -25,15 +24,14 @@ These files contain your personal data, customizations, and work product. Update
 | `interview-prep/sessions/*.md` | Interview sessions — real transcripts + mock sessions (sensitive: real names/companies; gitignored except scaffold). Drives `patterns` Step 1b targeting signal and `interview-redflag` analysis. Scaffold files (`README.md`, `.gitkeep`) are system-owned. |
 | `documents/*` | Your profile intake sources — master CV, LinkedIn export, diplomas, reference letters (PII — gitignored except scaffold; read locally by `intake.mjs`, see `modes/intake.md`). Scaffold files (`README.md`, `.gitkeep`) are system-owned. |
 | `data/.hired-share-state.json` | Hired Wall ask-state (asked/shared/later/never per hire) — the anti-nag memory; never committed, never read by anything but `hired-share.mjs` |
-| `data/.gitkeep` | System-owned empty directory scaffold; the updater writes only this exact file and preserves all user files in `data/` |
-| `data/offers/.gitkeep` | System-owned empty directory scaffold; the updater writes only this exact file and preserves all user files in `data/offers/` |
-| `data/parser-output/.gitkeep` | System-owned empty directory scaffold; the updater writes only this exact file and preserves all user files in `data/parser-output/` |
+| `data/.gitkeep` | System-owned empty directory scaffold; all other user files in `data/` are preserved |
+| `data/offers/.gitkeep` | System-owned empty directory scaffold; all other user files in `data/offers/` are preserved |
+| `data/parser-output/.gitkeep` | System-owned empty directory scaffold; all other user files in `data/parser-output/` are preserved |
 | `data/intake-state.json` | Fingerprints of already-ingested intake sources (written by `node intake.mjs --commit`; makes re-runs propose only new material — safe to delete, next intake re-proposes everything) |
 | `portals.yml` | Your customized company list |
 | `config/plugins.yml` | Your plugin activation toggles (opt-in; seeded from `config/plugins.example.yml`) |
-| `opencode.json` | Your OpenCode project config (MCP servers, model, formatter, LSP) — gitignored, copy `opencode.example.json` to start |
-| `plugins.local/` | Your own / private plugins (never auto-updated) |
-| `plugins.lock` | Integrity pins + recorded consent for your enabled plugins (generated; never auto-updated) |
+| `plugins.local/` | Your own / private plugins |
+| `plugins.lock` | Integrity pins + recorded consent for your enabled plugins (generated) |
 | `data/applications.md` | Your application tracker (source of truth) |
 | `data/career-profile.yml` | Your source-backed Master Career Profile; written only after explicit review of imported CV facts |
 | `data/applications.db` | Derived query index over `applications.md` (SQLite, rebuilt by `node tracker.mjs sync` — safe to delete) |
@@ -57,40 +55,17 @@ These files contain your personal data, customizations, and work product. Update
 | `data/blacklist.md` | Your do-not-apply list (opt-in — absence = no filtering; never auto-populated: only you, or the agent on your explicit instruction, write to it. Its `Scope` is `company` (default: normalized feed company name) or `domain` (the Company cell is a hostname suffix matched to the posting URL); no parent/subsidiary relationship is inferred. Respected by `scan.mjs` and the `auto-pipeline`/`oferta`/`apply` gates; never a scoring input) |
 | `data/assessments.tsv` | Your append-only skills-assessment log: `{date}\t{company}\t{report#\|-}\t{platform}\t{subject}\t{threshold%\|-}\t{score%\|-}\t{stale_note}`. Appended by `node assessment-log.mjs add`; never edited in place. Empty stale_note = no staleness observed. Read by `assessment-log.mjs` |
 | `data/contacts.tsv` | Your job-search phonebook (third-party PII — gitignored): `{name}\t{company}\t{type}\t{title}\t{phone}\t{email}\t{linkedin}\t{tracker#\|-}\t{notes}`. `type` optional; when present must be one of the enum (recruiter\|hiring-manager\|peer\|interviewer\|internal-referral\|other), else flagged in `quality`. Written by the `contacto` mode only after you confirm; lines are updated in place when a contact's details change (unlike the append-only salary log). Read by `contacts.mjs` |
-| `data/Connections.csv` | Your LinkedIn connections export (third-party PII — gitignored, never committed, never touched by the updater). Placed here by you: LinkedIn → Settings → Data Privacy → Get a copy of your data → Connections. Read fresh on every run by `linkedin-join.mjs`, which writes no cache, index or sidecar state, so the file is disposable — delete it after use and re-export when you need it again. Never enters a prompt and never leaves the machine; only rows you paste by hand reach `data/contacts.tsv` |
-| `writing-samples/*` | Your personal writing samples for style calibration (except `writing-samples/README.md`, which is system-owned documentation delivered by updates) |
-| `reports/*` | Your evaluation reports; `reports/.gitkeep` is the system-owned directory scaffold and may be replaced by the updater |
-| `output/*` | Your generated PDFs; `output/.gitkeep` is the system-owned directory scaffold and may be replaced by the updater |
-| `jds/*` | Your saved job descriptions; `jds/.gitkeep` is the system-owned directory scaffold and may be replaced by the updater |
-| `templates/cv-{candidate}-{company-slug}.html`, `templates/cover-{candidate}-{company-slug}.html` | Your per-application generated CVs/cover letters, for installs that save the HTML twin under `templates/` instead of `output/` (#3636). `templates/` is otherwise system-owned (base CV/cover templates), so these are recognized by name rather than directory: anything under `templates/` starting with `cv-` or `cover-` that is NOT one of the shipped `cv-template*.html` / `cover-letter-template*.html` files is treated as your data — see `isGeneratedTemplateArtifact()` in `update-system.mjs` |
-| `templates/cv-template.{name}.html` / `.tex`, `templates/cover-letter-template.{name}.html` / `.tex` | Your own named CV/cover-letter template variant, when `{name}` matches `config/profile.yml`'s `cv.template` / `cover_letter.template` (the convention `cv-templates.mjs`'s `resolveTemplate()` reads — see its `KINDS`). `templates/` is otherwise system-owned, and a variant file this install created shares that directory and naming shape with the real shipped variants (`cv-template.zh-minimal.html`, ...), so it is recognized by cross-referencing the configured template name rather than by directory — see `isUserConfiguredTemplateVariant()` in `update-system.mjs`. An unconfigured or differently-named `cv-template.*.html` file is not covered by this carve-out and is still managed as a system file (updated or pruned normally). This is distinct from `templates/cv-{candidate}-{company-slug}.html` / `templates/cover-{candidate}-{company-slug}.html`, which is generated per-application *output*, not an authored template *variant*. |
+| `data/Connections.csv` | Your LinkedIn connections export (third-party PII — gitignored, never committed). Placed here by you: LinkedIn → Settings → Data Privacy → Get a copy of your data → Connections. Read fresh on every run by `linkedin-join.mjs`, which writes no cache, index or sidecar state, so the file is disposable — delete it after use and re-export when you need it again. Never enters a prompt and never leaves the machine; only rows you paste by hand reach `data/contacts.tsv` |
+| `writing-samples/*` | Your personal writing samples for style calibration (except `writing-samples/README.md`, which is system-owned documentation) |
+| `reports/*` | Your evaluation reports; `reports/.gitkeep` is the system-owned directory scaffold |
+| `output/*` | Your generated PDFs; `output/.gitkeep` is the system-owned directory scaffold |
+| `jds/*` | Your saved job descriptions; `jds/.gitkeep` is the system-owned directory scaffold |
+| `templates/cv-{candidate}-{company-slug}.html`, `templates/cover-{candidate}-{company-slug}.html` | Your per-application generated CVs/cover letters, for installs that save the HTML twin under `templates/` instead of `output/` (#3636). `templates/` is otherwise system-owned (base CV/cover templates), so these are recognized by name rather than directory: anything under `templates/` starting with `cv-` or `cover-` that is NOT one of the shipped `cv-template*.html` / `cover-letter-template*.html` files is treated as your data |
+| `templates/cv-template.{name}.html` / `.tex`, `templates/cover-letter-template.{name}.html` / `.tex` | Your own named CV/cover-letter template variant, when `{name}` matches `config/profile.yml`'s `cv.template` / `cover_letter.template` (the convention `cv-templates.mjs`'s `resolveTemplate()` reads — see its `KINDS`). `templates/` is otherwise system-owned, and a variant file this install created shares that directory and naming shape with the real shipped variants (`cv-template.zh-minimal.html`, ...), so it is recognized by cross-referencing the configured template name rather than by directory. An unconfigured or differently-named `cv-template.*.html` file is not covered by this carve-out and is a system file. This is distinct from `templates/cv-{candidate}-{company-slug}.html` / `templates/cover-{candidate}-{company-slug}.html`, which is generated per-application *output*, not an authored template *variant*. |
 
-### Fork-local paths
+## System Layer
 
-The two lists above describe *this project*. A fork usually carries files the project has never heard of — a nightly runner, an `.mcp.json`, a private fixtures directory. Those files are in the user layer by every definition that matters, but they cannot be added to `USER_PATHS`: that array lives in `update-system.mjs`, which `apply` overwrites and which git re-merges on every sync. The declaration would be erased by the process it exists to constrain.
-
-`config/local-paths.txt` moves the declaration outside that blast radius. It is gitignored by default, read at runtime, and merged into the user layer for both the updater's safety check and `validate-system-paths-coverage.mjs`:
-
-```text
-# one repo-relative path per line; blank lines and # comments ignored
-run-nightly.ps1
-.mcp.json
-qa-fixtures/          # trailing slash = everything under this directory
-```
-
-Absent file means no extra paths — identical to the behaviour of every install that never creates one.
-
-Three declarations are refused, loudly, naming the entry:
-
-| Refused | Why |
-|---------|-----|
-| An absolute path, or one containing `..` | Would extend "never touch" over files outside the checkout |
-| A path the system layer already ships | The file would silently stop receiving updates, with no other signal that it had been frozen |
-| `config/local-paths.txt` itself | It is gitignored by default, so nothing updates it; listing it protects against a threat that does not exist and reads as though it did. A fork whose CI runs the suite un-ignores and commits it (see `config/local-paths.example.txt`); it is then tracked and not ignored, which both guards accept |
-
-## System Layer (safe to auto-update)
-
-These files contain system logic, scripts, templates, and instructions that improve with each release.
+These files contain system logic, scripts, templates, and instructions. Never put user data in them.
 
 | File | Purpose |
 |------|---------|
@@ -130,7 +105,6 @@ These files contain system logic, scripts, templates, and instructions that impr
 | `modes/interview/*` | Interview prep planning, practice, and debrief skills |
 | `modes/agent-inbox.md` | Agent inbox (queued requests) instructions |
 | `modes/reply-watch.md` | Employer reply classification instructions |
-| `modes/update.md` | System update instructions |
 | `modes/ar/*` | Arabic language modes |
 | `modes/da/*` | Danish language modes |
 | `modes/de/*` | German language modes |
@@ -150,11 +124,7 @@ These files contain system logic, scripts, templates, and instructions that impr
 | `modes/zh/*` | Chinese language modes |
 | `modes/heuristics/*` | Shared candidate-facing application heuristics |
 | `CLAUDE.md` | Agent instructions (Claude Code) |
-| `OPENCODE.md` | Agent instructions (OpenCode) |
-| `CODEX.md` | Agent instructions (Codex) |
-| `KIMI.md` | Agent instructions (Kimi CLI) |
-| `GEMINI.md` | Legacy no-op context guard (prevents Antigravity duplicate imports) |
-| `AGENTS.md` | Canonical agent instructions (imported by CLI-specific wrappers) |
+| `AGENTS.md` | Canonical agent instructions (imported by `CLAUDE.md`) |
 | `*.mjs` | Utility scripts |
 | `providers/` | Job-source provider modules for the zero-token scanner |
 | `plugins/` | Bundled plugins + the plugin engine (opt-in external integrations) |
@@ -162,29 +132,23 @@ These files contain system logic, scripts, templates, and instructions that impr
 | `plugins-registry/` | Curated community plugins, one `<id>.json` per plugin (the trust root) |
 | `plugin-install.mjs` / `plugin-audit.mjs` / `validate-plugin-registry.mjs` | Plugin install/audit/registry-validation utilities |
 | `config/plugins.example.yml` | Plugin activation template (seed for `config/plugins.yml`) |
-| `opencode.example.json` | OpenCode project config template (seed for `opencode.json`; ships Playwright MCP registration) |
 | `batch/batch-prompt.md` | Batch worker prompt |
 | `batch/batch-runner.sh` | Batch orchestrator |
 | `dashboard/*` | Go TUI dashboard |
 | `templates/*` | Base templates |
 | `fonts/*` | Self-hosted fonts |
 | `.claude/skills/*` | Skill definitions (Claude Code) |
-| `.opencode/skills/*` | Skill definitions (OpenCode) |
-| `.qwen/skills/*` | Skill definitions (Qwen Code) |
-| `.antigravitycli/skills/*` | Skill definitions (Antigravity CLI) |
-| `.grok/skills/*` | Skill definitions (Grok Build CLI) |
 | `docs/*` | Documentation |
 | `VERSION` | Current version number |
 | `DATA_CONTRACT.md` | This file |
 | `writing-samples/README.md` | System-owned onboarding documentation for the writing-samples directory |
-| `seed-fixture.mjs` / `test-fixtures/*` | Upgrade-test fixtures and seeder (system layer; fictional data, never user data) |
-| `upgrade-tests.mjs` | Dynamic upgrade regression harness (PR gate: old install applies the commit under test hermetically) |
+| `test-fixtures/*` | Test fixtures (system layer; fictional data, never user data) |
 
 ## The Rule
 
-**If a file is user-owned, no update process may modify or delete it.** The only files the updater writes inside user-layer directories are the exact system-owned `.gitkeep` scaffolds listed above.
+**If a file is user-owned, nothing in the tool may modify or delete it.** The only files the tool writes inside user-layer directories are the exact system-owned `.gitkeep` scaffolds listed above.
 
-**If a file is in the System Layer, it can be safely replaced with the latest version from the upstream repo.**
+**If a file is in the System Layer, it belongs to the tool: change it in the repo, never keep user data in it.**
 
 ## Custom Data Directory
 

@@ -174,10 +174,9 @@ test('-h is accepted wherever --help is, and suppresses the same work', () => {
 // Each of these has the same defect the six fixed here had: an unrecognised
 // flag is discarded, so `--help` falls through and the script runs.
 const KNOWN_WITHOUT_HELP = new Set([
-  'batch-evaluate-gemini.mjs', 'cv-templates.mjs', 'fetch-jd.mjs',
+  'cv-templates.mjs', 'fetch-jd.mjs',
   'generate-cover-letter.mjs', 'generate-pdf.mjs', 'intake.mjs',
-  'match-star.mjs', 'openrouter-runner.mjs', 'plugins.mjs',
-  'seed-fixture.mjs',
+  'match-star.mjs', 'plugins.mjs',
   'validate-plugin-registry.mjs', 'validate-untrusted-content-coverage.mjs',
   // generate-latex.mjs and verify-portals.mjs were here and have since been
   // fixed upstream; the ratchet's other end caught that on the rebase and

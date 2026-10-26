@@ -1,9 +1,9 @@
 // tests/skill-router-modes.test.mjs — every mode AGENTS.md documents has a
 // route in the skill router (#4811).
 //
-// `/career-ops <mode>` goes through `.agents/skills/career-ops/SKILL.md`
-// (every other CLI's SKILL.md is a symlink to it). Its fallback reads "If
-// `$mode` is not a sub-command AND doesn't look like a JD, show discovery", so
+// `/career-ops <mode>` goes through `.claude/skills/career-ops/SKILL.md`. Its
+// fallback reads "If `$mode` is not a sub-command AND doesn't look like a JD,
+// show discovery", so
 // a mode with no row in the routing table is not just undocumented on that
 // path: `/career-ops triage` printed the command menu instead of running
 // triage. Plain-language requests still worked, since those go through
@@ -16,7 +16,7 @@ import { fail, pass, ROOT } from './helpers.mjs';
 
 console.log('\nSkill router covers every documented mode (#4811)');
 
-const skill = readFileSync(join(ROOT, '.agents', 'skills', 'career-ops', 'SKILL.md'), 'utf-8').replace(/\r\n/g, '\n');
+const skill = readFileSync(join(ROOT, '.claude', 'skills', 'career-ops', 'SKILL.md'), 'utf-8').replace(/\r\n/g, '\n');
 const agents = readFileSync(join(ROOT, 'AGENTS.md'), 'utf-8').replace(/\r\n/g, '\n');
 
 // The "Skill Modes" table in AGENTS.md: the Mode column starts with the

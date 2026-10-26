@@ -178,11 +178,9 @@ export function emitJsonReceipt(receipt, exitCode) {
 
 // ── Title filter ────────────────────────────────────────────────────
 
-// How a keyword matches text lives in title-keywords.mjs, because
-// openrouter-runner.mjs filters titles too and cannot import this file (scan.mjs
-// creates data/ at import time). It called a second, hand-kept copy of this
-// logic until the two drifted; there is now one implementation and this file
-// re-exports it, so existing importers — scan-ats-full.mjs and test-all.mjs's
+// How a keyword matches text lives in title-keywords.mjs, because other
+// title-filtering code cannot import this file (scan.mjs creates data/ at
+// import time). There is one implementation and this file re-exports it, so existing importers — scan-ats-full.mjs and test-all.mjs's
 // sections 11b and 44 among them — keep resolving it from here.
 // compileContentKeyword shares the `word:`/`stem:` prefix machinery but skips
 // the title filter's short-acronym auto-anchor (#3274).

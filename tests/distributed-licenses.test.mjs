@@ -1,14 +1,10 @@
 // tests/distributed-licenses.test.mjs — artifacts we redistribute must carry
 // the license text their licenses require (#4886).
 //
-// Two shapes of the same omission:
-//   - fonts/ ships OFL 1.1 font binaries (embedded in every rendered CV via
-//     templates/resume-template.html). OFL 1.1 requires the license to
-//     accompany redistribution, so every family in fonts/ needs an OFL file.
-//   - scaffolder/ is published to npm as @santifer/career-ops with
-//     "license": "MIT". MIT requires the notice to ship with the copy; npm
-//     packs a LICENSE file automatically regardless of `files`, so the file
-//     only has to exist — and must not drift from the root LICENSE.
+// fonts/ ships OFL 1.1 font binaries (embedded in every rendered CV via
+// templates/resume-template.html). OFL 1.1 requires the license to accompany
+// redistribution, so every family in fonts/ needs an OFL file. (The npm
+// scaffolder, the second shape of this omission, was removed from the fork.)
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -32,13 +28,3 @@ for (const family of families) {
 }
 if (existsSync(join(FONTS, 'README.md'))) pass('fonts/README.md names the upstream font sources');
 else fail('fonts/README.md is missing — it should name the upstream source of each font family');
-
-const rootLicense = readFileSync(join(ROOT, 'LICENSE'), 'utf8');
-const scaffolderLicense = join(ROOT, 'scaffolder', 'LICENSE');
-if (!existsSync(scaffolderLicense)) {
-  fail('scaffolder/LICENSE is missing — the npm package declares MIT but ships no license text');
-} else if (readFileSync(scaffolderLicense, 'utf8') !== rootLicense) {
-  fail('scaffolder/LICENSE has drifted from the root LICENSE — copy it again');
-} else {
-  pass('scaffolder/LICENSE matches the root LICENSE');
-}

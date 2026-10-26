@@ -9,7 +9,7 @@
 //
 // This is tests/rename-contention.test.mjs §4 repeated per migrated file
 // instead of pinning tracker-utils.mjs alone: renameSyncWithRetry is the only
-// code allowed to call renameSync in each of the five files below. A bare
+// code allowed to call renameSync in each of the four files below. A bare
 // call reintroduced by a future edit reopens the exact class #3006 closed —
 // which is what happened twice already to the mkdir/rm side of this same
 // family (#2777, #2984) before the derived-list test in
@@ -26,18 +26,17 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { pass, fail, ROOT } from './helpers.mjs';
 
-console.log('\n📝 rename contention: the #3006 fix carries to the other five vulnerable call sites (#3046)');
+console.log('\n📝 rename contention: the #3006 fix carries to the other four vulnerable call sites (#3046)');
 
 const ok = (cond, msg) => (cond ? pass(msg) : fail(msg));
 
-// The five files #3046 classified as the vulnerable shape — write-tmp then
+// The four files #3046 classified as the vulnerable shape — write-tmp then
 // rename over a destination that already exists at write time.
 const MIGRATED_FILES = [
   'followup-seed.mjs',
   'scan-ats-full.mjs',
   'discover-ats.mjs',
   'paste-reply.mjs',
-  'update-system.mjs',
 ];
 
 for (const file of MIGRATED_FILES) {
@@ -64,16 +63,11 @@ for (const file of MIGRATED_FILES) {
 
   // The helper has to come from the one canonical definition, not a local
   // reimplementation — that drift is exactly what #2984 cost weeks chasing.
-  // update-system.mjs must stay self-loading (#1706, see its top-of-file
-  // note): no static top-level relative import, so it pulls the helper in
-  // via a lazy `await import(...)` instead — both forms count here.
   const importsFromTrackerUtils = new RegExp(
     `import\\s*\\{[^}]*\\b(?:renameSyncWithRetry|writeFileAtomic)\\b[^}]*\\}\\s*from\\s*['"]\\.\\/tracker-utils\\.mjs['"]`,
   ).test(src);
-  const lazyImportsFromTrackerUtils =
-    /(?:const|let|var)\s*\{[^}]*\b(?:renameSyncWithRetry|writeFileAtomic)\b[^}]*\}\s*=\s*await\s+import\(\s*['"]\.\/tracker-utils\.mjs['"]\s*\)/.test(src);
   ok(
-    importsFromTrackerUtils || lazyImportsFromTrackerUtils,
+    importsFromTrackerUtils,
     `${file}: the rename helper is imported from the canonical tracker-utils.mjs (not reimplemented)`,
   );
 }

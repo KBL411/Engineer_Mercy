@@ -44,7 +44,6 @@ table in `AGENTS.md` (mirrored in `CLAUDE.md`).
 | `project.md` | `project` | Portfolio project evaluation |
 | `add.md` | `add` | Add a project, paper, or role to the CV (confirm-before-write) |
 | `agent-inbox.md` | `agent-inbox` | Queue requests for the next session |
-| `update.md` | `update` | Interactive system update |
 
 ## Shared context and user customization
 
@@ -55,7 +54,7 @@ table in `AGENTS.md` (mirrored in `CLAUDE.md`).
 | `_custom.template.md` | Seed for your `modes/_custom.md` (house rules, procedural preferences) |
 
 Your copies (`_profile.md`, `_custom.md`) are user-layer files: gitignored
-and never touched by `update-system.mjs` (see
+and never touched by the system (see
 [DATA_CONTRACT.md](../DATA_CONTRACT.md)).
 
 ## Subdirectories

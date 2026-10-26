@@ -1,29 +1,21 @@
-// tests/split-root.test.mjs — entry points that read both layers, run with the
-// data root outside the checkout (#5115).
+// tests/split-root.test.mjs — batch/batch-runner.sh run with the data root
+// outside the checkout (#5115).
 //
 // CAREER_OPS_ROOT / CAREER_OPS_DATA_DIR / a .career-ops-data marker move the
-// user layer out of the checkout. An entry point then has two roots to keep
-// apart: system-layer files (modes/_shared.md, modes/oferta.md, the .mjs
-// scripts) ship with the code, user-layer files (cv.md, config/profile.yml,
-// modes/_profile.md, reports/, batch/tracker-additions/) follow the data root.
-// Two entry points got that wrong, in opposite directions:
+// user layer out of the checkout. The runner then has two roots to keep apart:
+// system-layer files (modes/_shared.md, modes/oferta.md, the .mjs scripts) ship
+// with the code, user-layer files (cv.md, config/profile.yml, modes/_profile.md,
+// reports/, batch/tracker-additions/) follow the data root.
 //
-//   openrouter-runner.mjs   read the system modes from the DATA root, found
-//                           none, and evaluated on a prompt with no shared
-//                           rules and no evaluation mode.
-//   batch/batch-runner.sh   built every path from the CHECKOUT, so workers were
-//                           scored against the checkout's template profile and
-//                           their reports and tracker lines were looked for in
-//                           directories reserve-report-num.mjs and
-//                           merge-tracker.mjs never read.
+// batch/batch-runner.sh used to build every path from the CHECKOUT, so workers
+// were scored against the checkout's template profile and their reports and
+// tracker lines were looked for in directories reserve-report-num.mjs and
+// merge-tracker.mjs never read.
 //
-// Every data root here holds user-layer files ONLY. The existing
-// openrouter-runner data-root test planted modes/apply.md inside its data root,
-// which is the one thing a real data root never has and exactly what hid the
-// first bug.
+// Every data root here holds user-layer files ONLY: a real data root never holds
+// system modes, so planting them there would hide exactly this bug.
 //
-// Both entry points are driven through their real CLI, with the network and the
-// worker replaced: a preloaded fetch stub stands in for OpenRouter, a `claude`
+// The runner is driven through its real CLI, with the worker replaced: a `claude`
 // stub on PATH stands in for the batch worker.
 //
 // Run:  node --test tests/split-root.test.mjs
@@ -36,7 +28,6 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { getBash, rmSync, ROOT, toBashPath } from './helpers.mjs';
 
 const TRACKER_HEADER = [
@@ -83,85 +74,6 @@ function splitEnv(extra = {}) {
     ...extra,
   };
 }
-
-// ── openrouter-runner.mjs ───────────────────────────────────────────────────
-
-// Preloaded with --import. Records the request the runner would have sent to
-// OpenRouter and answers it; any other request fails, so the test cannot reach
-// the network.
-const FETCH_STUB = `
-import { writeFileSync } from 'node:fs';
-globalThis.fetch = async (url, init = {}) => {
-  if (!String(url).endsWith('/chat/completions')) throw new Error('split-root fixture: unexpected fetch ' + url);
-  writeFileSync(process.env.SPLIT_ROOT_CAPTURE, String(init.body));
-  const body = { choices: [{ message: { content: '**Legitimacy:** High\\n\\nScore: 4.2/5\\n\\nFixture evaluation.' } }], usage: {} };
-  return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
-};
-`;
-
-/** Run the real runner CLI under a data root and return the system prompt it sent. */
-function sentSystemPrompt(base, dataRoot, args) {
-  const stub = join(base, 'fetch-stub.mjs');
-  writeFileSync(stub, FETCH_STUB);
-  const capture = join(base, `request-${args[0]}.json`);
-  const cwd = join(base, 'decoy-cwd');
-  mkdirSync(cwd, { recursive: true });
-  const r = spawnSync(process.execPath, ['--import', pathToFileURL(stub).href, join(ROOT, 'openrouter-runner.mjs'), ...args], {
-    cwd, encoding: 'utf8', timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'],
-    // A pinned model skips the free-model listing, the runner's other request.
-    env: splitEnv({
-      CAREER_OPS_ROOT: dataRoot,
-      OPENROUTER_API_KEY: 'split-root-fixture-key',
-      CAREER_OPS_MODEL: 'fixture/model',
-      SPLIT_ROOT_CAPTURE: capture,
-    }),
-  });
-  assert.equal(r.error, undefined, `spawn failed: ${r.error?.message}`);
-  assert.equal(r.status, 0, `openrouter-runner ${args[0]} exited ${r.status}: ${r.stderr}`);
-  assert.ok(existsSync(capture), `openrouter-runner ${args[0]} sent no model request:\n${r.stdout}\n${r.stderr}`);
-  const request = JSON.parse(readFileSync(capture, 'utf8'));
-  return request.messages[0].content[0].text;
-}
-
-const systemMode = (name) => readFileSync(join(ROOT, 'modes', name), 'utf8');
-
-test('openrouter-runner evaluate: system modes come from the checkout, user files from the data root', () => {
-  const base = mkdtempSync(join(tmpdir(), 'split-root-or-eval-'));
-  try {
-    const dataRoot = makeDataRoot(base);
-    for (const mode of ['_shared.md', 'oferta.md', 'auto-pipeline.md', 'apply.md']) {
-      assert.ok(!existsSync(join(dataRoot, 'modes', mode)), `fixture error: the data root must not hold modes/${mode}`);
-    }
-
-    const prompt = sentSystemPrompt(base, dataRoot, ['evaluate', 'Acme Corp is hiring a Senior Platform Engineer in Berlin.']);
-
-    assert.ok(prompt.includes(systemMode('_shared.md')), 'the system prompt is missing the checkout\'s modes/_shared.md');
-    assert.ok(prompt.includes(systemMode('oferta.md')), 'the system prompt is missing the checkout\'s modes/oferta.md');
-    assert.ok(prompt.includes('DATA-ROOT-PROFILE-MARKER'), 'the system prompt is missing the data root\'s modes/_profile.md');
-    assert.ok(prompt.includes('DATA-ROOT-CV-MARKER'), 'the system prompt is missing the data root\'s cv.md');
-    assert.ok(prompt.includes('Data Root Candidate'), 'the system prompt is missing the data root\'s config/profile.yml');
-
-    // The report still follows the data root, numbered after the reports there.
-    const written = readdirSync(join(dataRoot, 'reports')).filter((f) => f.startsWith('004-'));
-    assert.equal(written.length, 1, `expected report 004 in the data root, found: ${readdirSync(join(dataRoot, 'reports')).join(', ')}`);
-  } finally {
-    rmSync(base, { recursive: true, force: true });
-  }
-});
-
-test('openrouter-runner apply: modes/apply.md comes from the checkout', () => {
-  const base = mkdtempSync(join(tmpdir(), 'split-root-or-apply-'));
-  try {
-    const dataRoot = makeDataRoot(base);
-    const prompt = sentSystemPrompt(base, dataRoot, ['apply', '1']);
-
-    assert.ok(prompt.includes(systemMode('_shared.md')), 'the system prompt is missing the checkout\'s modes/_shared.md');
-    assert.ok(prompt.includes(systemMode('apply.md')), 'the system prompt is missing the checkout\'s modes/apply.md');
-    assert.ok(prompt.includes('DATA-ROOT-PROFILE-MARKER'), 'the system prompt is missing the data root\'s modes/_profile.md');
-  } finally {
-    rmSync(base, { recursive: true, force: true });
-  }
-});
 
 // ── batch/batch-runner.sh ───────────────────────────────────────────────────
 

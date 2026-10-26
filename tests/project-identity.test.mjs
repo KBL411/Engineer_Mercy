@@ -2,14 +2,14 @@
 // one pair of them was ever compared, so the rest drifted in silence.
 //
 // This test started out asserting over FOUR files, which was wrong: sweeping by
-// content instead of by the filenames I expected found three more short blurbs
-// (.claude-plugin/marketplace.json carries two, and .github/plugin/ mirrors the
-// manifest). The count in a comment is exactly the thing that goes stale, so the
-// assertions below enumerate the places from the files themselves where they can.
+// content instead of by the filenames I expected found more short blurbs (the
+// plugin manifests mirrored package.json). The count in a comment is exactly the
+// thing that goes stale, so the assertions below enumerate the places from the
+// files themselves where they can.
 //
 // What was found on 2026-09-04, all three at once:
 //
-//   .claude-plugin/plugin.json  "AI job search command center"
+//   a plugin manifest           "AI job search command center"
 //                               — "command center" reads as centralized infrastructure,
 //                                 which is the opposite of what this tool is.
 //   package.json  homepage      https://santifer.io
@@ -31,7 +31,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,18 +40,16 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf-8');
 
 test('every short blurb describes the same project in the same words', () => {
   const pkg = JSON.parse(read('package.json'));
-  const marketplace = JSON.parse(read('.claude-plugin/marketplace.json'));
 
   // package.json is the reference only because npm publishes it; it carries no
-  // more authority than the others. What matters is that they agree.
+  // more authority than the others. What matters is that they agree. The plugin
+  // manifest is compared only while it exists, so a fork that drops it is not
+  // told to bring it back.
   const blurbs = [
     ['package.json', pkg.description],
-    ['.claude-plugin/plugin.json', JSON.parse(read('.claude-plugin/plugin.json')).description],
-    ['.github/plugin/plugin.json', JSON.parse(read('.github/plugin/plugin.json')).description],
-    ['.claude-plugin/marketplace.json metadata', marketplace.metadata?.description],
-    // Enumerated from the file, not from a count kept here: a marketplace with a
-    // second plugin one day should widen this automatically.
-    ...(marketplace.plugins ?? []).map((pl, i) => [`.claude-plugin/marketplace.json plugins[${i}]`, pl.description]),
+    ...['.github/plugin/plugin.json']
+      .filter((p) => existsSync(join(ROOT, p)))
+      .map((p) => [p, JSON.parse(read(p)).description]),
   ];
 
   for (const [where, blurb] of blurbs) {

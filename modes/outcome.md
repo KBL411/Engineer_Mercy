@@ -78,7 +78,7 @@ Each invocation creates or appends to `data/outcomes/{num}_{company_slug}_{role_
 `output/` accumulates the tailored PDF/HTML generated at evaluation time for every application, including ones that have since concluded. Passing `--clean-output` removes the tailored PDF/HTML for *this* row from `output/` once its outcome has been recorded — but only after the archive is verified, never as a bare delete:
 
 1. Archives the CV PDF to `submitted_cv.pdf` (already happens by default) and, only when `--clean-output` is set, the companion HTML to `submitted_cv.html`.
-2. Verifies each archived copy exists in `data/outcomes/{num}_{company_slug}_{role_slug}/` and matches the `output/` original **byte-for-byte (sha256)** — a size check alone can't tell two same-length renders apart, so this hashes both files the same way `tracker.mjs` and `seed-fixture.mjs` already do.
+2. Verifies each archived copy exists in `data/outcomes/{num}_{company_slug}_{role_slug}/` and matches the `output/` original **byte-for-byte (sha256)** — a size check alone can't tell two same-length renders apart, so this hashes both files the same way `tracker.mjs` already does.
 3. Only then deletes the `output/` original. If verification fails or the archived copy is missing, the `output/` file is left in place and reported as refused — never deleted on an unverified archive.
 4. `--dry-run --clean-output` lists the exact files that would be archived-then-removed without touching anything.
 

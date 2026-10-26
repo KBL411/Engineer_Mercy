@@ -27,8 +27,7 @@ data/parser-output/**
 !data/parser-output/**/.gitkeep
 reports/*.md
 # Single-level glob above misses subdirectories (e.g. reports/superseded/).
-# Kept alongside it rather than replacing it, so update-system.mjs does not
-# re-append the original pattern as "missing".
+# Kept alongside it rather than replacing it.
 reports/**/*.md
 !reports/.gitkeep
 /output
@@ -104,16 +103,11 @@ writing-samples/*
 config/profile.yml
 config/cv-facts.json
 config/benchmarks.yml
-# Fork-local path declarations — this checkout's own files, read by
-# update-system.mjs. Gitignored on purpose: it describes THIS clone, not the
-# project, and must survive the sync that overwrites update-system.mjs (#2421).
-config/local-paths.txt
 portals.yml
 modes/_profile.md
 modes/_custom.md
 modes/_brief.md
 voice-dna.md
-.update-dismissed
 .update-lock
 .manifesto-noted
 
@@ -173,7 +167,7 @@ reports/*-RESERVED.md
 # Unanchored, like the .db rule below and for the same reason: getCareerOpsRoot()
 # resolves a relative CAREER_OPS_ROOT (or .career-ops-data marker) against the
 # codebase directory, so a data root configured as `career-data` puts these inside
-# the checkout, where an anchored rule would not reach them. The upgrade fixtures
+# the checkout, where an anchored rule would not reach them. The test fixtures
 # that share these names stay tracked via the `!test-fixtures/**` rule further down,
 # which is a later pattern and therefore wins.
 applications.md
@@ -203,9 +197,6 @@ follow-ups.md
 *.db-wal
 *.db-shm
 
-# OpenRouter runner — generated data (personal, never commit)
-data/model-blacklist.json
-
 # OS
 .DS_Store
 *.mov
@@ -218,8 +209,6 @@ data/model-blacklist.json
 # CLI-specific local config
 .claude/settings.local.json
 .claude/memory/
-.opencode/settings.local.json
-.opencode/memory/
 # OpenCode project config (often holds personal MCP/model/per-machine prefs).
 opencode.json
 # Claude Code project-level MCP server config — commonly ends up holding
@@ -242,7 +231,7 @@ plan/
 # Web — runtime cache/history the dashboard writes locally; nothing here is tracked.
 .career-ops-web/
 
-# Upgrade-test fixtures are fictional system-layer data, never user data
+# Test fixtures are fictional system-layer data, never user data
 # (see DATA_CONTRACT.md). Re-include them past the unanchored user-layer
 # patterns above (cv.md, portals.yml).
 !test-fixtures/**

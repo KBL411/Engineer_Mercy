@@ -15,10 +15,10 @@
 // would wall off every edit to batch-runner.sh; exempting without the block
 // would restore the original hole.
 //
-// The guard also has to keep pace with update-system.mjs's USER_PATHS: a
-// user-layer path added there and not here (documents/, modes/_brief.md —
-// #4891) is private data the guard waves through. The last test below fails
-// the moment the two lists drift, unless the gap is allowlisted with a reason.
+// The guard also has to keep pace with the user layer of DATA_CONTRACT.md: a
+// user-layer path left out of the workflow (documents/, modes/_brief.md —
+// #4891) is private data the guard waves through. The last test below pins the
+// user-layer paths the guard must block, and the two it must let through.
 //
 // The predicate is EVALUATED out of the workflow, not pattern-matched in it.
 // A regex-over-source check passes on a USER_PATHS entry that an isScaffold
@@ -32,7 +32,6 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { USER_PATHS } from '../update-system.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WORKFLOW = '.github/workflows/no-user-data.yml';
@@ -40,7 +39,7 @@ const WORKFLOW = '.github/workflows/no-user-data.yml';
 /**
  * Build the workflow's own "is this file blocked?" decision.
  *
- * Slices the YAML from the USER_PATHS declaration to the line that consumes it
+ * Slices the YAML from the workflow's USER_PATHS declaration to the line that consumes it
  * and evaluates that slice, so the returned predicate is the shipped logic
  * rather than a second copy of it. The slice bounds are asserted first: an
  * indexOf miss returns -1, and a silently empty slice would make every
@@ -181,29 +180,51 @@ test('the guard exempts every tracked source under batch/', () => {
   );
 });
 
-// update-system.mjs USER_PATHS entries the guard deliberately does not block.
-// Each one needs a reason; an entry here that leaves USER_PATHS fails below.
+// The user layer of DATA_CONTRACT.md, one probe file per entry. The guard sees
+// file paths from listFiles, never bare directories, so a directory is probed
+// with a file under it.
+const USER_LAYER_PROBES = [
+  'cv.md',
+  'config/profile.yml',
+  'config/plugins.yml',
+  'modes/_profile.md',
+  'modes/_custom.md',
+  'modes/_brief.md',
+  'portals.yml',
+  'article-digest.md',
+  'plugins.lock',
+  'plugins.local/private/index.mjs',
+  '.career-ops-web/chats/1.json',
+  'documents/private.pdf',
+  'interview-prep/story-bank.md',
+  'data/applications.md',
+  'reports/001-acme-2026-01-01.md',
+  'output/cv-jane-acme.pdf',
+  'jds/acme-engineer.md',
+  'writing-samples/sample.md',
+];
+
+// User-layer entries the guard deliberately lets through, each with its reason.
 const NOT_GUARDED = new Map([
   ['voice-dna.md', 'ships as a populated system default, so edits to it are legit'],
   ['.claude/settings.json', 'project harness config, not gitignored, may legitimately be committed'],
-  ['.claude/hooks/', 'project harness config, not gitignored, may legitimately be committed'],
+  ['.claude/hooks/pre-tool.mjs', 'project harness config, not gitignored, may legitimately be committed'],
 ]);
 
-test('the guard blocks every update-system.mjs user-layer path not allowlisted', () => {
+test('the guard blocks every user-layer path and lets the allowlisted ones through', () => {
   const isBlocked = loadGuard();
 
-  const stale = [...NOT_GUARDED.keys()].filter((p) => !USER_PATHS.includes(p));
-  assert.deepEqual(stale, [], `NOT_GUARDED names paths update-system.mjs no longer lists: ${stale.join(', ')}`);
-
-  // A directory entry is probed with a file under it, since the guard sees
-  // file paths from listFiles, never bare directories.
-  const unguarded = USER_PATHS
-    .filter((p) => !NOT_GUARDED.has(p))
-    .filter((p) => !isBlocked(p.endsWith('/') ? `${p}private.pdf` : p));
+  const unguarded = USER_LAYER_PROBES.filter((p) => !isBlocked(p));
   assert.deepEqual(
     unguarded,
     [],
-    `update-system.mjs USER_PATHS entries the no-user-data guard lets through — add them to ` +
-      `${WORKFLOW} or to NOT_GUARDED with a reason: ${unguarded.join(', ')}`,
+    `user-layer paths the no-user-data guard lets through — add them to ${WORKFLOW}: ${unguarded.join(', ')}`,
+  );
+
+  const overblocked = [...NOT_GUARDED.keys()].filter(isBlocked);
+  assert.deepEqual(
+    overblocked,
+    [],
+    `the no-user-data guard blocks paths that are legitimately committed: ${overblocked.join(', ')}`,
   );
 });

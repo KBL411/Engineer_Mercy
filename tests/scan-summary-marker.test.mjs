@@ -93,8 +93,7 @@ test('every scanner imports the module and prints the header', async () => {
     ['scan.mjs', 'Portal Scan'],
     ['scan-ats-full.mjs', 'Reverse ATS Scan'],
     ['scan-interamt.mjs', 'Interamt Scan'],
-    ['scan-hn.mjs', 'HN Scan'],
-  ];
+    ];
   for (const [file, title] of scanners) {
     const src = readFileSync(new URL(`../${file}`, import.meta.url), 'utf-8');
     assert.match(src, /from '\.\/lib\/scan-summary-marker\.mjs'/, `${file} imports the module`);

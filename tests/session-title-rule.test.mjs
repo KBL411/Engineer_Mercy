@@ -21,7 +21,7 @@ console.log('\nRouter session-title rule (#5303)');
 const read = (path) => readFileSync(join(ROOT, path), 'utf-8').replace(/\r\n/g, '\n');
 const check = (label, cond) => (cond ? pass(label) : fail(label));
 
-const skill = read('.agents/skills/career-ops/SKILL.md');
+const skill = read('.claude/skills/career-ops/SKILL.md');
 const section = skill.split('## Session Title (host-optional, #5303)')[1]?.split('\n---')[0] ?? '';
 
 check('router has a Session Title section', section.length > 0);

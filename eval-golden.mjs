@@ -19,15 +19,12 @@
  *
  * Usage:
  *   node eval-golden.mjs --replay --model cheap-stub     # offline, deterministic ($0)
- *   node eval-golden.mjs --live   --model gpt-4o-mini    # calls openai-eval.mjs (needs key + cv.md)
- *   npm run eval:golden -- --replay --model cheap-stub
+  *   npm run eval:golden -- --replay --model cheap-stub
  */
 
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, rmSync } from 'fs';
+import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
-import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
-import { spawnSync } from 'child_process';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const GOLDEN_DIR = join(ROOT, 'evals', 'golden');
@@ -57,7 +54,6 @@ if (args.includes('--help') || args.includes('-h')) {
   console.log(`eval-golden.mjs — golden-set eval harness (#1354)
 
   --replay         Replay recorded fixtures (default; offline, $0, deterministic)
-  --live           Call the model live via openai-eval.mjs (needs key + cv.md)
   --model <id>     Candidate model id to evaluate (default: cheap-stub)
   --golden <dir>   Golden-set directory (default: evals/golden)
   --fixtures <dir> Replay fixtures directory (default: sibling of --golden)
@@ -122,15 +118,14 @@ function parseSummary(text) {
 }
 
 // ---------------------------------------------------------------------------
-// Obtain one candidate completion (replay fixture or live openai-eval call).
+// Obtain one candidate completion (replay fixture only).
 // ---------------------------------------------------------------------------
 
 /**
  * Return the candidate model's raw evaluation text for one golden case.
  *
  * In replay mode this reads a recorded fixture so the gate is offline and
- * deterministic; in live mode it shells out to openai-eval.mjs, reusing the
- * real prompt-assembly path rather than duplicating it here.
+ * deterministic; live mode was removed with openai-eval.mjs.
  *
  * @param {{id: string, jd: string}} testCase - The golden case being run.
  * @returns {string} Raw model output (expected to contain a SCORE_SUMMARY block).
@@ -142,26 +137,14 @@ function getCompletion(testCase) {
     // to a flat filename — record fixtures under the same sanitized name.
     const fixture = join(fixtureDir, `${testCase.id}__${fixtureModelId(model)}.txt`);
     if (!existsSync(fixture)) {
-      throw new Error(`missing replay fixture: ${fixture} — record it or run --live`);
+      throw new Error(`missing replay fixture: ${fixture} — record it first`);
     }
     return readFileSync(fixture, 'utf8');
   }
 
-  // live: write the JD to a temp file and run the existing evaluator.
-  const dir = mkdtempSync(join(tmpdir(), 'eval-golden-'));
-  try {
-    const jdFile = join(dir, 'jd.txt');
-    writeFileSync(jdFile, testCase.jd);
-    const res = spawnSync(process.execPath,
-      [join(ROOT, 'openai-eval.mjs'), '--file', jdFile, '--model', model, '--no-save'],
-      { encoding: 'utf8', env: process.env, timeout: 360000 });
-    if (res.status !== 0) {
-      throw new Error(`openai-eval.mjs exited ${res.status}: ${(res.stderr || '').slice(0, 200)}`);
-    }
-    return res.stdout || '';
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  // Fork fr-data: openai-eval.mjs was removed with the other-model evaluators,
+  // so only recorded fixtures can be replayed.
+  throw new Error('live mode is not available in this fork: replay recorded fixtures instead');
 }
 
 /**

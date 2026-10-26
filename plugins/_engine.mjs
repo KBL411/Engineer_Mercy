@@ -661,7 +661,7 @@ export async function loadPlugins(kind, { root, dataRoot = root, dryRun = false,
   return out;
 }
 
-/** Lazily load dotenv exactly once (mirrors gemini-eval.mjs). Idempotent. */
+/** Lazily load dotenv exactly once Idempotent. */
 let dotenvLoaded = false;
 export async function loadDotenvOnce(root = null) {
   if (dotenvLoaded) return;

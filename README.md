@@ -18,7 +18,7 @@
 - [D'où ça vient](#doù-ça-vient)
 - [Ce qui change par rapport à career-ops](#ce-qui-change-par-rapport-à-career-ops)
 - [Ce qui arrive bientôt](#ce-qui-arrive-bientôt)
-- [Installation](#installation)
+- [Tutoriel : de zéro à ta première offre évaluée](#tutoriel--de-zéro-à-ta-première-offre-évaluée)
 - [Utilisation](#utilisation)
 - [Ce que l'outil ne fait pas](#ce-que-loutil-ne-fait-pas)
 - [Tes données restent chez toi](#tes-données-restent-chez-toi)
@@ -106,28 +106,161 @@ Pour chaque offre, un CV réordonné et reformulé pour coller au poste : mêmes
 - les **tâches planifiées Windows** pour tout lancer seul chaque matin ;
 - l'**élagage** du dépôt, jusqu'à ce que `node test-all.mjs` et `node doctor.mjs` restent verts sur le strict nécessaire.
 
-## Installation
+## Tutoriel : de zéro à ta première offre évaluée
 
-**Prérequis**
+Compte une vingtaine de minutes. Tu peux t'arrêter après l'étape 5 et reprendre plus tard.
 
-- [Node.js](https://nodejs.org) 22.13 ou plus récent ;
-- [Claude Code](https://claude.com/claude-code), avec un compte Claude ;
-- Git.
+### 1. Ce qu'il te faut sur ta machine
+
+| Outil | Pourquoi | Vérifier |
+|---|---|---|
+| [Node.js](https://nodejs.org) 22.13 ou plus | fait tourner les scripts | `node --version` |
+| [Git](https://git-scm.com) | récupère le projet | `git --version` |
+| [Claude Code](https://claude.com/claude-code) et un compte Claude | l'assistant qui fait l'évaluation | `claude --version` |
+
+Sous Windows, ouvre un terminal **WSL** ou **Git Bash** : les scripts `.sh` n'ont pas besoin d'autre chose. Détails dans [`docs/WINDOWS.md`](docs/WINDOWS.md).
+
+### 2. Récupère le projet
 
 ```bash
 git clone https://github.com/KBL411/Engineer_Mercy.git
 cd Engineer_Mercy
 npm install
-npx playwright install chromium   # seulement pour générer les PDF
-npm run doctor                    # vérifie que tout est en place
-claude                            # ouvre Claude Code dans ce dossier
+npx playwright install chromium   # pour générer les PDF
 ```
 
-Au premier lancement, **Claude te guide par la conversation** : ton CV, ton profil, les postes visés, tes critères éliminatoires. Rien à configurer à la main.
+La *skill* `/career-ops` est déjà dans le dépôt (`.claude/skills/career-ops/`) : Claude Code la charge tout seul quand tu l'ouvres dans ce dossier. Il n'y a rien à installer pour elle.
 
-Sous Windows, passe par WSL ou Git Bash pour les scripts `.sh`. Le guide [`docs/WINDOWS.md`](docs/WINDOWS.md) donne les détails.
+### 3. Ajoute les outils qui rendent l'assistant meilleur
 
-> **La première semaine, il ne te connaît pas.** Les premières notes seront approximatives. Corrige-le (« cette note est trop haute », « tu as oublié mon expérience en dbt ») : il met à jour ton profil et s'améliore à chaque échange.
+**Playwright MCP, recommandé.** Il permet à Claude d'ouvrir une offre dans un vrai navigateur pour vérifier qu'elle est encore en ligne. Dans Claude Code :
+
+```
+/plugin install playwright@claude-plugins-official
+```
+
+**Firecrawl, facultatif.** Certaines pages d'offres refusent les lectures automatiques (Welcome to the Jungle répond « 403 » à un simple téléchargement) ou n'affichent leur texte qu'avec du JavaScript. Firecrawl les lit quand même. Il faut un compte gratuit sur [firecrawl.dev](https://www.firecrawl.dev) (1 000 crédits par mois, une page = 1 crédit).
+
+```bash
+npm install -g firecrawl-cli
+firecrawl login                        # colle ta clé d'API quand il la demande
+firecrawl setup core -g -a claude-code # installe les skills Firecrawl pour Claude Code
+export CAREER_OPS_FIRECRAWL=1          # active-le pour les évaluations en lot
+```
+
+Firecrawl ne sert qu'en **dernier recours** : l'outil essaie d'abord les moyens gratuits. Il reçoit seulement l'URL de l'offre, jamais ton CV. LinkedIn est refusé d'office. Sans `CAREER_OPS_FIRECRAWL=1`, il ne se déclenche jamais dans le mode lot.
+
+### 4. Vérifie l'installation
+
+```bash
+npm run doctor
+```
+
+Chaque ligne doit commencer par ✓. Un ⚠ n'est pas bloquant (par exemple « Playwright MCP non détecté » tant que tu n'as pas fait l'étape 3). Un ✗ dit quoi corriger.
+
+### 5. Prépare ton CV
+
+Deux façons, au choix.
+
+**A. Tu déposes tes documents, l'assistant s'en sert.** Copie-les dans `documents/` :
+
+| Dossier | Quoi |
+|---|---|
+| `documents/cv/` | ton CV actuel, en `.pdf` (avec texte), `.md`, `.txt` ou `.tex` |
+| `documents/linkedin/` | l'export PDF de ton profil LinkedIn (« Enregistrer au format PDF ») |
+| `documents/diplomas/` | relevés de notes, diplômes |
+
+Un `.docx` n'est pas lu : exporte-le d'abord en PDF. Puis, dans Claude Code, tape `/career-ops intake`. Il te propose ce qu'il comprend de tes documents, et **n'écrit rien sans ton accord**.
+
+**B. Tu écris `cv.md` toi-même**, à la racine du projet, dans ce format (les titres comptent, c'est comme ça que les outils retrouvent tes postes) :
+
+```markdown
+# CV -- Prénom Nom
+
+**Lieu :** Paris
+**Email :** prenom@example.com
+**LinkedIn :** linkedin.com/in/ton-profil
+
+## Résumé
+
+Deux ou trois phrases sur ce que tu fais et ce que tu cherches.
+
+## Expérience
+
+### Nom de l'entreprise -- Paris
+
+**Intitulé du poste**
+2022-2025
+
+- Ce que tu as fait, avec un chiffre quand tu en as un
+- Un autre résultat concret
+
+## Formation
+
+- Master en informatique, Université X (2020)
+
+## Compétences
+
+- **Données :** SQL, Python, dbt, Snowflake
+- **Infra :** Docker, Terraform, Airflow
+```
+
+Le titre de la section doit être `## Expérience` ou `## Experience` (ou `## Work Experience`), chaque poste commence par `### Entreprise -- Lieu`, puis une ligne en gras pour l'intitulé, puis les dates. Un modèle complet est dans [`examples/cv-example.md`](examples/cv-example.md).
+
+### 6. Lance l'assistant et réponds à ses questions
+
+```bash
+claude
+```
+
+À la première phrase que tu écris, il détecte qu'il manque ton profil et te guide par la conversation. Réponds en français, en phrases simples. Il te demande :
+
+1. ton nom, ton e-mail, ta ville ;
+2. les postes que tu vises (« Data Engineer », « Platform Engineer », « AI Engineer »…) ;
+3. ta fourchette de salaire ;
+4. le niveau de dépense par évaluation : *économie* (rapide, peu cher), *standard* (le bon choix par défaut) ou *premium* (le plus soigné) ;
+5. ce qui te distingue, ce qui t'enthousiasme, ce qui t'épuise ;
+6. tes critères éliminatoires (« pas d'ESN », « pas de présentiel 5 jours », « pas de Java »…) ;
+7. ta plus belle réussite professionnelle, celle par laquelle tu ouvrirais un entretien.
+
+Tes réponses vont dans `config/profile.yml`, `modes/_profile.md` et `cv.md` : ce sont des fichiers **à toi**, ignorés par Git. Plus tu es précis, meilleure est la note des offres. Tu peux revenir les corriger quand tu veux, en le demandant à l'assistant.
+
+### 7. Évalue ta première offre
+
+Dans Claude Code, colle simplement l'URL d'une offre :
+
+```
+https://www.welcometothejungle.com/fr/companies/.../jobs/...
+```
+
+Au bout de quelques minutes tu obtiens :
+
+| Quoi | Où |
+|---|---|
+| le rapport complet (blocs A-H) avec la note sur 5 | `reports/` |
+| un CV adapté à l'offre, en PDF | `output/` |
+| la ligne de suivi de ta candidature | `data/applications.md` |
+
+Sous 4,0/5, l'assistant te déconseille de postuler. Tu relis, tu corriges, et c'est **toi** qui envoies.
+
+### 8. Laisse-le chercher pour toi
+
+```
+/career-ops scan
+```
+
+parcourt les sites de recrutement configurés dans `portals.yml` et met les nouvelles offres dans `data/pipeline.md`. `/career-ops pipeline` les évalue ensuite une à une. Pour tout enchaîner chaque matin sans y penser, voir [Les offres du jour](#les-offres-du-jour-sans-y-penser).
+
+Pour ajouter des entreprises, demande simplement : « ajoute Doctolib et Alan à mes portails ».
+
+### Un souci ?
+
+| Symptôme | À faire |
+|---|---|
+| `/career-ops` n'existe pas | ouvre `claude` **dans le dossier du projet**, pas ailleurs |
+| `npm run doctor` affiche ✗ | lis la ligne : elle dit quoi corriger |
+| Une offre n'est pas lue (403, page vide) | active Firecrawl (étape 3), ou colle le texte de l'offre dans la conversation |
+| Les notes te semblent fausses | dis-le à l'assistant (« trop haute, j'ai de l'expérience en dbt ») : il corrige ton profil |
 
 ## Utilisation
 

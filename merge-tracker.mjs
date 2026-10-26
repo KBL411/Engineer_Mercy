@@ -1147,7 +1147,7 @@ export async function mergeTracker(options = {}) {
     const parts = splitAdditionCells(dataLines[0]);
     // Only the REQUIRED cells must actually be there. A row whose trailing
     // optional value is empty is routinely written without its final tab —
-    // openrouter-runner emits `…\treport\t\n` for an absent note, and an LLM
+    // a writer can emit `…\treport\t\n` for an absent note, and an LLM
     // writer asked for "leave the last field empty" often just stops — so
     // demanding a cell for every label would reject canonical rows. Absent and
     // empty read the same here, which is what the batch and web prompts already
