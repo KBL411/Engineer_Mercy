@@ -85,13 +85,13 @@ test('ceiling validation normalizes decimal zeros and rejects unsafe or overflow
   }
 }));
 
-function runLoop({ invoke, dir }, { cap = 300, retries = 0, max = 2, log = '429', successAfter = 99, cli = 'claude', secondLog = log } = {}) {
+function runLoop({ invoke, dir }, { cap = 300, retries = 0, max = 2, log = '429', successAfter = 99, secondLog = log } = {}) {
   writeFileSync(join(dir, 'first.log'), log);
   writeFileSync(join(dir, 'second.log'), secondLog);
   return invoke(`${functions}
     RATE_LIMIT_SLEEP=${cap}
     MAX_RETRIES=${max}
-    CLI=${cli}
+    CLI=claude
     PAUSE_FILE=pause.tsv
     THROTTLE_FILE=throttle.marker
     BATCH_PAUSED=false
@@ -102,13 +102,11 @@ function runLoop({ invoke, dir }, { cap = 300, retries = 0, max = 2, log = '429'
       if (( calls == 1 )); then cat first.log; else cat second.log; fi
       return 1
     }
-    qwen() { claude; }
     sleep() { printf 'SLEEP:%s\n' "$1"; }
     update_state_retrying() { printf 'STATE:%s:%s:%s\n' "$3" "$8" "$9"; }
     worker() {
       local retries=${retries} id=1 url=https://example.com started_at=start report_num=001 log_file=worker.log
-      local -a claude_args=(-p) model_args=()
-      local full_prompt=fixture
+      local -a claude_args=(-p)
       ${loop}
       printf 'END:%s:%s:%s:%s\n' "$calls" "$retries" "$terminal_failure_recorded" "$exit_code"
     }
@@ -139,8 +137,8 @@ test('zero, over-cap and session pauses preserve retries and use the existing pa
   }
 }));
 
-test('successful, non-rate-limit and non-Claude workers do not back off', () => fixture(ctx => {
-  for (const options of [{ successAfter: 0 }, { log: 'unrelated failure' }, { cli: 'qwen' }]) {
+test('successful and non-rate-limit workers do not back off', () => fixture(ctx => {
+  for (const options of [{ successAfter: 0 }, { log: 'unrelated failure' }]) {
     const out = runLoop(ctx, options);
     assert.doesNotMatch(out, /SLEEP:|STATE:/);
     assert.match(out, /END:1:0:false:/);

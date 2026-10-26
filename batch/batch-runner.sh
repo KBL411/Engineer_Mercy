@@ -5,15 +5,9 @@ set -euo pipefail
 # Reads batch-input.tsv, delegates each offer to a worker, tracks state in
 # batch-state.tsv for resumability.
 #
-# Supported CLIs (--cli flag):
-#   claude    — claude -p inside a least-privilege permission envelope
-#               (claude_worker_permission_args below) (default)
-#   opencode  — opencode run (falls back to ollama launch opencode if not in PATH)
-#   gemini    — gemini -p
-#   qwen      — qwen -p
-#
-# Only claude supports --strict-mcp-config, the rate-limit/session retry loop,
-# and --parallel > 1; other CLIs run sequentially with a single attempt.
+# Workers run `claude -p` inside a least-privilege permission envelope
+# (claude_worker_permission_args below). Claude Code is the only supported CLI
+# (fork fr-data, SPEC.md 3.2); --cli exists only to say so explicitly.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -181,18 +175,17 @@ is_decimal_number() {
 usage() {
   cat <<'USAGE'
 career-ops batch runner — process job offers in batch via headless agent workers
-Defaults to claude; other CLIs via --cli. For claude the model is resolved from
-spend_tier in config/profile.yml unless --model overrides it.
+Workers are claude -p agents. The model is resolved from spend_tier in
+config/profile.yml unless --model overrides it.
 
 Usage: batch-runner.sh [OPTIONS]
 
 Options:
-  --cli NAME           Agent CLI to use: claude (default), opencode, gemini, qwen
-  --model NAME         Model for the CLI (e.g. qwen2.5:32b for opencode/ollama).
-                       For claude, overrides the tier-resolved model (otherwise
+  --cli NAME           Agent CLI (claude is the only supported value)
+  --model NAME         Overrides the tier-resolved model (otherwise
                        config/profile.yml spend_tier: economy/standard/premium;
                        default standard).
-  --parallel N         Number of parallel workers (default: 3 for claude, 1 otherwise).
+  --parallel N         Number of parallel workers (default: 3).
                        On a rate limit, the rest of the batch runs on 1 worker.
   --dry-run            Show what would be processed, don't execute
   --retry-failed       Only retry offers marked as "failed" in state
@@ -232,9 +225,6 @@ Examples:
 
   # Process 2 at a time starting from ID 10 (claude only)
   ./batch-runner.sh --parallel 2 --start-from 10
-
-  # Local LLM via OpenCode (free, runs sequentially)
-  ./batch-runner.sh --cli opencode --model qwen2.5:32b
 USAGE
 }
 
@@ -278,7 +268,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$PARALLEL" ]]; then
-  if [[ "$CLI" == "claude" ]]; then PARALLEL=$DEFAULT_CLAUDE_PARALLEL; else PARALLEL=1; fi
+  PARALLEL=$DEFAULT_CLAUDE_PARALLEL
 fi
 
 if ! [[ "$RATE_LIMIT_SLEEP" =~ ^[0-9]+$ ]]; then
@@ -337,30 +327,14 @@ check_prerequisites() {
     exit 1
   fi
 
-  # Resolve the binary the configured CLI actually needs. opencode can run
-  # natively or fall back to ollama, so check for either.
-  local cli_cmd
-  case "$CLI" in
-    claude)   cli_cmd="claude" ;;
-    opencode) command -v opencode &>/dev/null && cli_cmd="opencode" || cli_cmd="ollama" ;;
-    gemini)   cli_cmd="gemini" ;;
-    qwen)     cli_cmd="qwen" ;;
-    *) echo "ERROR: Unknown --cli '$CLI'. Supported: claude, opencode, gemini, qwen"; exit 1 ;;
-  esac
-
-  if ! command -v "$cli_cmd" &>/dev/null; then
-    echo "ERROR: '$cli_cmd' not found in PATH (required for --cli $CLI)."
-    if [[ "$CLI" == "opencode" ]]; then
-      echo "       Install opencode (https://opencode.ai) or Ollama (https://ollama.ai) with an opencode model."
-    fi
+  if [[ "$CLI" != "claude" ]]; then
+    echo "ERROR: Unknown --cli '$CLI'. Supported: claude"
     exit 1
   fi
 
-  # Parallelism, the rate-limit retry loop, and --strict-mcp-config are
-  # claude-only; local models run one at a time.
-  if [[ "$CLI" != "claude" && "$PARALLEL" -gt 1 ]]; then
-    echo "WARN: --parallel >1 is not supported for --cli $CLI (local models run sequentially). Resetting to 1."
-    PARALLEL=1
+  if ! command -v claude &>/dev/null; then
+    echo "ERROR: 'claude' not found in PATH (Claude Code is required)."
+    exit 1
   fi
 
   mkdir -p "$LOGS_DIR" "$TRACKER_DIR" "$REPORTS_DIR"
@@ -577,19 +551,12 @@ spend_tier_to_model() {
   esac
 }
 
-# Resolve the model to pass to the worker CLI. --model always wins.
-# spend_tier maps to Claude model names, so it only applies to --cli claude;
-# other CLIs use --model verbatim, or their own default when it is unset.
+# Resolve the model to pass to the worker. --model always wins; otherwise
+# spend_tier maps to a Claude model name.
 resolve_worker_model() {
   if [[ -n "$MODEL" ]]; then
     RESOLVED_MODEL="$MODEL"
     RESOLVED_SPEND_TIER="override"
-    return 0
-  fi
-
-  if [[ "$CLI" != "claude" ]]; then
-    RESOLVED_MODEL=""
-    RESOLVED_SPEND_TIER="cli-default"
     return 0
   fi
 
@@ -1005,11 +972,11 @@ process_offer() {
   # Use mktemp instead of a predictable path: a fixed name like
   # /tmp/batch-jd-${id}.txt is guessable, so an attacker on a shared machine
   # could pre-create it as a symlink and redirect or clobber the write.
-  # Always project-local, never ${TMPDIR}: the worker CLI has to be able to read
-  # this file, and CLIs that auto-reject external_directory (/tmp/*) — opencode
-  # does — cannot read anything outside the project. Honouring TMPDIR here would
-  # re-open that hole whenever TMPDIR is the usual /tmp. mktemp still randomizes
-  # the name, so the symlink-guessability property above is unchanged.
+  # Always project-local, never ${TMPDIR}: the worker is confined to the project
+  # directory (--restricted), so it can only read this file from inside it.
+  # Honouring TMPDIR here would break that whenever TMPDIR is the usual /tmp.
+  # mktemp still randomizes the name, so the symlink-guessability property above
+  # is unchanged.
   local jd_tmp_dir="$PROJECT_DIR/batch/tmp"
   mkdir -p "$jd_tmp_dir"
   local jd_file
@@ -1169,6 +1136,27 @@ process_offer() {
     rm -f "$jd_api_tmp"
   fi
 
+  # Firecrawl, last resort and opt-in (CAREER_OPS_FIRECRAWL=1): when no free path
+  # produced a JD, ask the Firecrawl CLI through fetch-jd-firecrawl.mjs. One
+  # credit per page; only the public offer URL leaves the machine, as one argv
+  # element, never as text inside a shell command. The page text is untrusted
+  # data like any other JD.
+  local jd_fc_words=0
+  if [[ "${CAREER_OPS_FIRECRAWL:-0}" == "1" && ! -s "$jd_file" && -f "$PROJECT_DIR/fetch-jd-firecrawl.mjs" ]]; then
+    local jd_fc_tmp
+    jd_fc_tmp="$(mktemp "${TMPDIR:-/tmp}/batch-jd-fc.XXXXXX")"
+    if node "$PROJECT_DIR/fetch-jd-firecrawl.mjs" "$url" > "$jd_fc_tmp" 2>/dev/null; then
+      jd_fc_words=$(wc -w < "$jd_fc_tmp" 2>/dev/null) || jd_fc_words=0
+      jd_fc_words="${jd_fc_words//[^0-9]/}"
+      jd_fc_words="${jd_fc_words:-0}"
+      if [[ "$jd_fc_words" -ge "$prefetch_min_words" ]]; then
+        cat "$jd_fc_tmp" > "$jd_file"
+        echo "    ℹ️  JD prefetch: ${jd_fc_words} words from Firecrawl (fetch-jd-firecrawl.mjs)"
+      fi
+    fi
+    rm -f "$jd_fc_tmp"
+  fi
+
   echo "--- Processing offer #$id: $url (report $report_num, attempt $((retries + 1)))"
 
   # Build the prompt with placeholders replaced
@@ -1255,18 +1243,6 @@ process_offer() {
 
   # Non-claude CLIs lack --append-system-prompt-file, so concatenate the
   # resolved system prompt and the per-job prompt into a single argument.
-  # model_args is expanded with the ${arr[@]+"${arr[@]}"} idiom below: under
-  # `set -u`, bash 3.2 (macOS /bin/bash) treats an empty array expansion as an
-  # unbound variable and would abort every worker launched without --model.
-  local full_prompt=""
-  local -a model_args=()
-  if [[ "$CLI" != "claude" ]]; then
-    full_prompt="$(cat "$resolved_prompt")"$'\n\n'"$prompt"
-    [[ -n "$MODEL" ]] && model_args=(--model "$MODEL")
-  fi
-
-  # Non-claude CLIs run a single attempt (explicit break after dispatch); the
-  # rate-limit/session retry loop only applies to claude.
   local exit_code=0
   local terminal_failure_recorded=false
   local shim_retries=0
@@ -1281,27 +1257,7 @@ process_offer() {
         # that envelope (crash, rate-limit text) is left as it is.
         node "${PROJECT_DIR:-.}/batch/split-claude-json.mjs" "$log_file" "${log_file%.log}.usage.json" 2>/dev/null || true
         ;;
-      opencode)
-        if command -v opencode &>/dev/null; then
-          opencode run ${model_args[@]+"${model_args[@]}"} "$full_prompt" > "$log_file" 2>&1 || exit_code=$?
-        else
-          ollama launch opencode ${model_args[@]+"${model_args[@]}"} -y -- run "$full_prompt" > "$log_file" 2>&1 || exit_code=$?
-        fi
-        ;;
-      gemini)
-        gemini ${model_args[@]+"${model_args[@]}"} -p "$full_prompt" > "$log_file" 2>&1 || exit_code=$?
-        ;;
-      qwen)
-        qwen ${model_args[@]+"${model_args[@]}"} -p "$full_prompt" > "$log_file" 2>&1 || exit_code=$?
-        ;;
     esac
-
-    # Non-claude CLIs run a single attempt: the session-limit and rate-limit
-    # detection below greps generic phrases (429, quota, session limit) that
-    # another CLI's log could match by coincidence and pause or retry the batch.
-    if [[ "$CLI" != "claude" ]]; then
-      break
-    fi
 
     if [[ $exit_code -eq 0 ]]; then
       break
