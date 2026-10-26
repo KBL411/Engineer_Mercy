@@ -5,6 +5,11 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # undici 8 needs Node 22.19 or newer; the declared floor is 22.13
+      # (lib/node-floor.mjs). Remove this once the floor is raised.
+      - dependency-name: "undici"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

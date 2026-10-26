@@ -1,6 +1,6 @@
 # Keep this version aligned with the exact playwright dependency in package.json.
 # The image digest below also pins Chromium, Node, and the base operating system.
-FROM mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+FROM mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
 
 # Freeze font files and Poppler (including transitive dependencies) independently
 # of when CI rebuilds the image. Only the Ubuntu archive signing key is trusted.
