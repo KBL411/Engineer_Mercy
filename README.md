@@ -59,6 +59,7 @@ Un grand merci à l'équipe d'origine : tout le moteur d'évaluation, le scanner
 | **Sources d'offres** | Plus de 100 entreprises, surtout anglo-saxonnes | Sites de recrutement d'entreprises (Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Teamtailor) et **Welcome to the Jungle** filtré côté serveur (CDI, Île-de-France ou full remote) |
 | **Lieu des offres** | — | Le connecteur Welcome to the Jungle ajoute **la région du bureau** au lieu de l'offre, pour filtrer correctement |
 | **Annonces Welcome to the Jungle** | Lecture de la page | Lecture via l'index de recherche public du site (la page est derrière un pare-feu qui bloque les lectures automatiques) |
+| **E-mail** | Brouillon à copier-coller | **Brouillon Gmail** avec CV et lettre en pièces jointes (`gmail-draft.mjs`), et lecture des alertes emploi (plugin Gmail, lecture seule). Jamais d'envoi |
 | **Annonces illisibles** | Téléchargement direct, puis API de l'ATS | Un troisième recours **facultatif** : [Firecrawl](https://www.firecrawl.dev) lit les pages qui refusent les lectures automatiques ou qui n'affichent leur texte qu'avec du JavaScript. Éteint par défaut (`CAREER_OPS_FIRECRAWL=1` pour l'activer), 1 crédit par page, seule l'URL publique de l'offre lui est envoyée |
 | **Clients finaux** | — | Une **liste noire** (`data/blacklist.md`) écarte les ESN, cabinets et agences pour ne garder que les clients finaux |
 | **Exécution quotidienne** | Rien de prévu | `scripts/daily-run.sh` : scan, tri, évaluation des meilleures offres, rapport du jour (10 évaluations par jour au plus, réglable) |
@@ -108,7 +109,7 @@ Pour chaque offre, un CV réordonné et reformulé pour coller au poste : mêmes
 
 ## Tutoriel : de zéro à ta première offre évaluée
 
-Compte une vingtaine de minutes. Tu peux t'arrêter après l'étape 5 et reprendre plus tard.
+Compte une vingtaine de minutes. Tu peux t'arrêter après l'étape 5 et reprendre plus tard. Les étapes 3 (outils) et 9 (Gmail) sont facultatives.
 
 ### 1. Ce qu'il te faut sur ta machine
 
@@ -252,6 +253,15 @@ Sous 4,0/5, l'assistant te déconseille de postuler. Tu relis, tu corriges, et c
 parcourt les sites de recrutement configurés dans `portals.yml` et met les nouvelles offres dans `data/pipeline.md`. `/career-ops pipeline` les évalue ensuite une à une. Pour tout enchaîner chaque matin sans y penser, voir [Les offres du jour](#les-offres-du-jour-sans-y-penser).
 
 Pour ajouter des entreprises, demande simplement : « ajoute Doctolib et Alan à mes portails ».
+
+### 9. Gmail, facultatif : alertes et brouillons
+
+Deux usages, chacun avec son propre jeton, à configurer une fois (quinze minutes, [guide pas à pas](docs/GMAIL_SETUP.md)) :
+
+- **Alertes emploi.** Tes alertes LinkedIn, Indeed, APEC ou Welcome to the Jungle, classées sous une étiquette Gmail, alimentent ta liste d'offres : `node plugins.mjs run gmail`. Accès en lecture seule.
+- **Brouillons de candidature.** `/career-ops email 42` rédige l'e-mail, puis l'enregistre **dans tes Brouillons Gmail** avec ton CV et ta lettre en pièces jointes. Tu relis, tu envoies toi-même.
+
+Rien n'est jamais envoyé automatiquement : aucun fichier Gmail du projet ne contient de route d'envoi, et un test échoue si on en ajoute une.
 
 ### Un souci ?
 

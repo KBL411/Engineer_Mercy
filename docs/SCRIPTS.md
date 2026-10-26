@@ -31,6 +31,8 @@ All scripts live in the project root as `.mjs` modules. Most are exposed via
 | `node check-liveness.mjs --tracker --discard-expired [--apply]` | `check-liveness.mjs` | Check the postings of Evaluated and Applied tracker rows, then move Evaluated rows whose posting is `expired` to Discarded with the note `posting closed YYYY-MM-DD`. Without `--apply` it is a dry run. Uncertain verdicts and Applied rows stay as they are |
 | `npm run extract` | `browser-extract.mjs` | Headless read-only page extractor (opt-in `scan.extractor: cli`) — compact JSON for scan/JD; Greenhouse, Lever, Ashby and Workday postings are read from their public JSON endpoints instead of the client-rendered page, and an empty jd extraction exits 1 with `code: empty_text` |
 | `node fetch-jd.mjs <url>` | `fetch-jd.mjs` | JD text on stdout from a known ATS API (Greenhouse/Lever/Ashby/Workday) — exit 1 with empty stdout when the host has no JD-bearing API, so a caller falls back to its browser/WebFetch path |
+| `node gmail-draft.mjs --subject <s> --body-file output/<f>.txt [--to <addr>] [--attach output/<f>]... [--dry-run]` | `gmail-draft.mjs` | Save an application email as a Gmail DRAFT with attachments (never sends); see docs/GMAIL_SETUP.md |
+| `node gmail-auth.mjs --scope readonly\|compose [--write]` | `gmail-auth.mjs` | Google consent flow that yields the refresh token for the job-alert reader or the draft writer |
 | `npm run scan` | `scan.mjs` | Zero-token portal scanner |
 | `npm run scan:full` | `scan-ats-full.mjs` | Reverse ATS discovery scanner |
 | `npm run company:funded` | `company-funded.mjs` | Review-first discovery of recently funded companies |

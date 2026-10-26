@@ -73,7 +73,8 @@ Aucune automatisation sur LinkedIn : ses conditions d'utilisation (section 8.2) 
 | France Travail | ❌ non disponible (19/10) | L'API « Offres d'emploi » n'est plus en libre accès : data.gouv.fr la classe « restreinte », retirée après des « usages automatisés massifs » par des solutions d'IA, et accessible seulement sur demande via le formulaire de contact. Un outil de recherche d'emploi piloté par une IA est précisément l'usage visé : on ne la demande pas. Les identifiants créés le 19/10 fonctionnent, mais ne donnent accès à aucune API utile |
 | APEC, HelloWork | ⏳ | Pas d'API publique connue. Lire leurs conditions d'utilisation avant toute ligne de code |
 | Free-Work, Collective.work, Forums Talents Handicap | ❌ | Vus à travers Adzuna le 19/10 : leurs offres CDI sont presque toutes des offres d'ESN ou de cabinets |
-| Alertes e-mail (LinkedIn, Indeed, APEC) via le plugin Gmail | ⏳ plus tard | Demande une configuration OAuth Google |
+| Alertes e-mail (LinkedIn, Indeed, APEC) via le plugin Gmail | ✅ en place (26/10), facultatif | Lecture seule, étiquette Gmail `Job Leads`, jeton `GMAIL_REFRESH_TOKEN` obtenu par `gmail-auth.mjs --scope readonly` (`docs/GMAIL_SETUP.md`). Seuls les e-mails authentifiés (DMARC) sont lus |
+| Brouillons Gmail de candidature | ✅ en place (26/10), facultatif | `gmail-draft.mjs` enregistre le brouillon avec CV et lettre en pièces jointes, jamais d'envoi (aucune route d'envoi dans le code, test de garde). Jeton `GMAIL_DRAFT_REFRESH_TOKEN`, droit Google « compose » : Google n'a pas de droit « brouillons seulement », donc le jeton est distinct de celui des alertes |
 | Firecrawl (secours) | ✅ en place, désactivé par défaut | Lit une annonce qu'aucun moyen gratuit ne lit (Welcome to the Jungle répond 403 à `curl`, pages rendues en JavaScript). Actif avec `CAREER_OPS_FIRECRAWL=1` et le CLI `firecrawl` connecté. Un crédit par page, seule l'URL publique de l'offre part chez Firecrawl, LinkedIn refusé (3.3). Appelé par `batch/batch-runner.sh` en dernier recours, après le téléchargement direct et l'API de l'ATS (`lib/firecrawl-jd.mjs`). Ne sert pas à scanner : les API gratuites des sites de recrutement font mieux |
 | Hacker News « Who is hiring? » | ❌ retiré | Surtout américain, lieux illisibles |
 
@@ -123,7 +124,7 @@ Aucune automatisation sur LinkedIn : ses conditions d'utilisation (section 8.2) 
 - les relances à faire (`followup-cadence.mjs`) ;
 - la revue du projet d'origine (3.1) : les commits proposés à la reprise.
 
-**Format** : un fichier Markdown dans `reports/`, plus une page HTML locale à ouvrir dans le navigateur, et une notification Windows quand le rapport est prêt. L'e-mail viendra avec le plugin Gmail.
+**Format** : un fichier Markdown dans `reports/`, plus une page HTML locale à ouvrir dans le navigateur, et une notification Windows quand le rapport est prêt. L'e-mail (rapport envoyé à soi-même) reste à décider : il lèverait la règle « jamais d'envoi ».
 
 ### 3.7 Lien avec DataDojo 🟡
 
