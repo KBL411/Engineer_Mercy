@@ -24,11 +24,12 @@ console.log('\nREADME HITL markers — the guarantee row keeps its anchor');
 const MARKER = '<!-- hitl: absolute guarantee.';
 const readmes = readdirSync(ROOT).filter((f) => /^README[\w.-]*\.md$/.test(f)).sort();
 
-// The whole family must be present: a marker check over an empty (or
-// mis-globbed) list would pass vacuously, which is exactly the blind-check
-// class this suite exists to avoid.
-if (readmes.length >= 17) pass(`found ${readmes.length} README files (17 expected as of Aug 2026)`);
-else fail(`only ${readmes.length} README*.md files found — glob broken or files removed`);
+// README.md must be found: a marker check over an empty (or mis-globbed) list
+// would pass vacuously, which is exactly the blind-check class this suite
+// exists to avoid. Fork fr-data: the 16 translations inherited from upstream
+// were removed, so README.md alone is expected.
+if (readmes.includes('README.md')) pass(`found ${readmes.length} README file(s), README.md included`);
+else fail('README.md not found — glob broken or file removed');
 
 for (const file of readmes) {
   const content = readFileSync(join(ROOT, file), 'utf8');
@@ -78,7 +79,7 @@ for (const file of readmes) {
     const prose = mEnd === -1 ? null : line.slice(0, mStart) + line.slice(mEnd + '-->'.length);
     if (prose === null) {
       fail(`${file}: the HITL marker comment is never closed with -->`);
-    } else if (/never submits an application/i.test(prose)) {
+    } else if (/never submits an application|ne soumet jamais de candidature/i.test(prose)) {
       pass(`${file}: the row states the prohibition in absolute terms`);
     } else {
       fail(`${file}: the HITL row no longer says "never submits an application"`);

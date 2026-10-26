@@ -29,9 +29,11 @@ const readmes = readdirSync(ROOT)
   .filter((f) => /^README\..+\.md$/.test(f))
   .sort();
 
-// Guard against empty file list
-test('sanity check: found localized README files', () => {
-  assert.ok(readmes.length >= 16, `Expected at least 16 localized README files, found ${readmes.length}`);
+// Fork fr-data: the translated READMEs inherited from upstream are gone (the
+// root README.md is the fork's own French page), so no localized file is
+// expected. The loop below still checks any README.<lang>.md that is added.
+test('sanity check: the fork README.md exists', () => {
+  assert.ok(readdirSync(ROOT).includes('README.md'), 'README.md is missing');
 });
 
 for (const file of readmes) {

@@ -7101,15 +7101,13 @@ if (
 console.log('\n12c. Codex documentation guidance');
 
 const readmeDoc = readFile('README.md');
-if (
-  /CODEX\.md/.test(readmeDoc) &&
-  /codex exec/.test(readmeDoc) &&
-  /Codex/i.test(readmeDoc) &&
-  /(slash commands?.*not guaranteed|plain language|prompt)/i.test(readmeDoc)
-) {
-  pass('README documents CODEX.md and Codex interactive/headless usage');
+// The fork supports Claude Code only (SPEC.md 3.2): the README says so and
+// documents its launch command, instead of the Codex invocation the upstream
+// README carried.
+if (/Claude Code/.test(readmeDoc) && /^claude\s/m.test(readmeDoc) && /Claude Code uniquement/.test(readmeDoc)) {
+  pass('README documents Claude Code as the only supported CLI and how to launch it');
 } else {
-  fail('README is missing required Codex usage guidance');
+  fail('README is missing the Claude Code usage guidance');
 }
 
 const setupDoc = readFile('docs/SETUP.md');

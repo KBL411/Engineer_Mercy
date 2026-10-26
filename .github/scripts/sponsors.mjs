@@ -130,13 +130,17 @@ export function checkAll() {
   const problems = [];
   const en = readFileSync(README, 'utf8');
   const cur = currentSection(en);
-  if (cur === null) problems.push(`README.md: no "${HEADING}" section`);
-  else if (cur !== renderSection(sponsors)) problems.push('README.md: Sponsors section drifted from .github/sponsors.json');
-  const iBefore = en.indexOf(`\n${HEADING_BEFORE}\n`);
-  const iHere = en.indexOf(`\n${HEADING}\n`);
-  const iAfter = en.indexOf(`\n${HEADING_AFTER}\n`);
-  if (iBefore === -1 || iAfter === -1) problems.push(`README.md: expected both "${HEADING_BEFORE}" and "${HEADING_AFTER}" headings`);
-  else if (!(iBefore < iHere && iHere < iAfter)) problems.push(`README.md: "${HEADING}" must sit between "${HEADING_BEFORE}" and "${HEADING_AFTER}"`);
+  // Fork fr-data: README.md is the fork's own French page and has no sponsor
+  // section (the sponsorship agreement belongs to upstream). A section that is
+  // present is still checked; only its absence is allowed.
+  if (cur !== null) {
+    if (cur !== renderSection(sponsors)) problems.push('README.md: Sponsors section drifted from .github/sponsors.json');
+    const iBefore = en.indexOf(`\n${HEADING_BEFORE}\n`);
+    const iHere = en.indexOf(`\n${HEADING}\n`);
+    const iAfter = en.indexOf(`\n${HEADING_AFTER}\n`);
+    if (iBefore === -1 || iAfter === -1) problems.push(`README.md: expected both "${HEADING_BEFORE}" and "${HEADING_AFTER}" headings`);
+    else if (!(iBefore < iHere && iHere < iAfter)) problems.push(`README.md: "${HEADING}" must sit between "${HEADING_BEFORE}" and "${HEADING_AFTER}"`);
+  }
   const rows = renderRows(sponsors);
   for (const file of localizedReadmes()) {
     const got = currentRows(readFileSync(join(ROOT, file), 'utf8'));
